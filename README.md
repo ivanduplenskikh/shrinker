@@ -11,11 +11,12 @@ this POC proves that a few conservative, deterministic filters can save useful c
 - Failures, warnings, changed paths, and command exit codes are preserved.
 - Omitted raw output is saved locally for recovery.
 - Every filtered run reports bytes and approximate before/after tokens.
+- Local SQLite statistics accumulate savings across runs.
 - No command output leaves the machine.
 
 ## Quick start
 
-Requires Node.js 22 or newer.
+Requires Node.js 22.13 or newer. This is the first Node 22 release where the built-in SQLite module no longer requires an experimental flag.
 
 ```powershell
 npm install
@@ -38,17 +39,34 @@ shrink exec -- git status
 ## CLI
 
 ```text
-shrink exec [options] -- <command> [args...]
+shrink exec [options] [--] <command> [args...]
 shrink pipe [options]
+shrink stats [--json]
 
 --kind <auto|git-status|git-diff|git-log|test|log>
 --max-lines <number>       default: 120
 --per-file-lines <number>  default: 40
 --raw                      bypass filtering
 --no-save                  do not save omitted raw output
+--no-stats                 do not record this run
 ```
 
-`exec` automatically selects a filter from the command. `pipe` defaults to the generic log filter unless `--kind` is specified.
+`exec` automatically selects a filter from the command. The `--` separator is optional because npm's PowerShell shim may consume it; both `shrink exec -- git log` and `shrink exec git log` are supported. `pipe` defaults to the generic log filter unless `--kind` is specified.
+
+## Savings statistics
+
+Filtered runs are recorded locally in `~/.shrink/stats.db`. The database stores only measurements, filter kind, executable basename, duration, omission state, and exit code. It does **not** store command arguments or command output.
+
+```powershell
+node dist\src\cli.js stats
+node dist\src\cli.js stats --json
+```
+
+The summary shows all-time and last-seven-day savings plus a breakdown by filter. Use `--no-stats` before `--` to opt out for an individual run:
+
+```powershell
+node dist\src\cli.js exec --no-stats -- git log -n 10
+```
 
 When meaningful content is omitted, the full capture is saved under `~/.shrink/raw`. The cache is limited to 20 files. File names contain only the executable name, not command arguments. Git-log compaction that removes only verbose metadata requires at least 50 estimated tokens of savings before creating a recovery file; omitted commit or body content is always recoverable. Use `--no-save` for output that should not be persisted.
 

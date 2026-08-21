@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 import test from "node:test";
 import { runCommand } from "../src/execution/run-command.js";
 import { applyFilter, detectFilter } from "../src/filters/select-filter.js";
@@ -134,4 +136,24 @@ test("metrics show absolute savings and label small gains", () => {
   const formatted = formatMeasurements(measure("x".repeat(151), "x".repeat(48)));
   assert.match(formatted, /26 saved, small absolute gain/);
   assert.match(formatted, /-68%/);
+});
+
+test("CLI accepts an exec command when a PowerShell shim consumes the separator", () => {
+  const cli = path.join(process.cwd(), "dist", "src", "cli.js");
+  const result = spawnSync(
+    process.execPath,
+    [
+      cli,
+      "exec",
+      "--no-stats",
+      "--no-save",
+      process.execPath,
+      "-e",
+      "process.stdout.write('wrapped successfully')",
+    ],
+    { encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /wrapped successfully/);
 });
