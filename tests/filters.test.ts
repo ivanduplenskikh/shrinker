@@ -38,15 +38,29 @@ test("git diff keeps files and changed lines", async () => {
   assert.ok(measure(raw, result.output).reductionPercent >= 25);
 });
 
-test("git log keeps commit identity and subjects while removing bodies", async () => {
+test("git log keeps commit identity and useful body context", async () => {
   const raw = await fixture("git-log.txt");
   const result = filterGitLog(raw, options);
 
   assert.match(result.output, /7f38b6e2b5 \(HEAD -> feature\/token-shrinker\)/);
   assert.match(result.output, /Add deterministic test output compression/);
   assert.match(result.output, /Ada Developer, 2026-08-21/);
-  assert.doesNotMatch(result.output, /Collapse passing test details/);
-  assert.ok(measure(raw, result.output).reductionPercent >= 55);
+  assert.match(result.output, /Collapse passing test details/);
+  assert.match(result.output, /\[\+1 body line omitted\]/);
+  assert.doesNotMatch(result.output, /Co-authored-by/);
+  assert.equal(result.recovery, "always");
+  assert.ok(measure(raw, result.output).reductionPercent >= 35);
+});
+
+test("git log reports a high relative but small absolute gain for one short commit", async () => {
+  const raw = await fixture("git-log-short.txt");
+  const result = filterGitLog(raw, options);
+  const measurements = measure(raw, result.output);
+
+  assert.equal(result.output, "f9ff16d39b Init — Ivan Duplenskikh, 2026-08-21");
+  assert.ok(measurements.reductionPercent >= 60);
+  assert.ok(measurements.estimatedTokensSaved < 50);
+  assert.equal(result.recovery, "threshold");
 });
 
 test("test output collapses passes and preserves failure details", async () => {

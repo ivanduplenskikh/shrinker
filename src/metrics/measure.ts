@@ -3,6 +3,7 @@ export interface Measurements {
   outputBytes: number;
   rawEstimatedTokens: number;
   outputEstimatedTokens: number;
+  estimatedTokensSaved: number;
   reductionPercent: number;
 }
 
@@ -15,6 +16,7 @@ export function measure(raw: string, output: string): Measurements {
   const outputBytes = Buffer.byteLength(output);
   const rawEstimatedTokens = estimatedTokens(raw);
   const outputEstimatedTokens = estimatedTokens(output);
+  const estimatedTokensSaved = Math.max(0, rawEstimatedTokens - outputEstimatedTokens);
   const reductionPercent =
     rawEstimatedTokens === 0
       ? 0
@@ -25,6 +27,7 @@ export function measure(raw: string, output: string): Measurements {
     outputBytes,
     rawEstimatedTokens,
     outputEstimatedTokens,
+    estimatedTokensSaved,
     reductionPercent,
   };
 }
@@ -34,5 +37,9 @@ export function formatMeasurements(
   durationMs?: number,
 ): string {
   const duration = durationMs === undefined ? "" : ` | ${durationMs}ms`;
-  return `[shrink] ${measurements.rawBytes}B -> ${measurements.outputBytes}B | est. tokens ${measurements.rawEstimatedTokens} -> ${measurements.outputEstimatedTokens} | -${measurements.reductionPercent}%${duration}`;
+  const gain =
+    measurements.estimatedTokensSaved > 0 && measurements.estimatedTokensSaved < 50
+      ? `${measurements.estimatedTokensSaved} saved, small absolute gain`
+      : `${measurements.estimatedTokensSaved} saved`;
+  return `[shrink] ${measurements.rawBytes}B -> ${measurements.outputBytes}B | est. tokens ${measurements.rawEstimatedTokens} -> ${measurements.outputEstimatedTokens} (${gain}) | -${measurements.reductionPercent}%${duration}`;
 }

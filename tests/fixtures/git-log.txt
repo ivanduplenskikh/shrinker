@@ -6,6 +6,10 @@ Date:   Thu Aug 21 12:30:00 2026 +0200
 
     Collapse passing test details while preserving failure messages,
     stack traces, and the final test summary.
+    Keep compact output deterministic across supported runners.
+    Store full raw output when meaningful context is omitted.
+
+    Co-authored-by: Example Contributor <example@example.com>
 
 commit a27c44c3d957955b611614eb380628f60217d03a
 Author: Grace Engineer <grace@example.com>

@@ -111,10 +111,13 @@ async function render(
   }
 
   const output = cleanText(result.output);
+  const measurements = measure(rawOutput, output);
   process.stdout.write(`${output}\n`);
-  process.stderr.write(`${formatMeasurements(measure(rawOutput, output), durationMs)}\n`);
+  process.stderr.write(`${formatMeasurements(measurements, durationMs)}\n`);
 
-  if (result.omitted && options.save) {
+  const shouldSave =
+    result.recovery !== "threshold" || measurements.estimatedTokensSaved >= 50;
+  if (result.omitted && options.save && shouldSave) {
     const path = await saveRawOutput(rawOutput, options.command);
     process.stderr.write(`[shrink] full output: ${path}\n`);
   }

@@ -9,12 +9,14 @@ export type FilterKind =
 export interface FilterOptions {
   maxLines: number;
   perFileLines: number;
+  command?: readonly string[];
 }
 
 export interface FilterResult {
   output: string;
   kind: Exclude<FilterKind, "auto">;
   omitted: boolean;
+  recovery?: "always" | "threshold";
   notes: string[];
 }
 

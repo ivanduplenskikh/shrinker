@@ -9,6 +9,7 @@ const examples: Array<{ title: string; file: string; kind: FilterKind; command: 
   { title: "Git status", file: "git-status.txt", kind: "git-status", command: ["git", "status"] },
   { title: "Git diff", file: "git-diff.txt", kind: "git-diff", command: ["git", "diff"] },
   { title: "Git log", file: "git-log.txt", kind: "git-log", command: ["git", "log"] },
+  { title: "Git log (one short commit)", file: "git-log-short.txt", kind: "git-log", command: ["git", "log"] },
   { title: "Test failure", file: "test-output.txt", kind: "test", command: ["npm", "test"] },
   { title: "Noisy log", file: "generic-log.txt", kind: "log", command: [] },
 ];

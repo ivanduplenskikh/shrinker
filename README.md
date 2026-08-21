@@ -50,7 +50,7 @@ shrink pipe [options]
 
 `exec` automatically selects a filter from the command. `pipe` defaults to the generic log filter unless `--kind` is specified.
 
-When content is omitted, the full capture is saved under `~/.shrink/raw`. The cache is limited to 20 files. File names contain only the executable name, not command arguments. Use `--no-save` for output that should not be persisted.
+When meaningful content is omitted, the full capture is saved under `~/.shrink/raw`. The cache is limited to 20 files. File names contain only the executable name, not command arguments. Git-log compaction that removes only verbose metadata requires at least 50 estimated tokens of savings before creating a recovery file; omitted commit or body content is always recoverable. Use `--no-save` for output that should not be persisted.
 
 ## Demo
 
@@ -64,12 +64,13 @@ Current representative fixtures:
 |---|---:|
 | Git status | 62% |
 | Git diff | 26% |
-| Git log | 70% |
+| Git log with commit bodies | 39% |
+| Git log with one short commit | 69%, but only 27 estimated tokens |
 | Test failure | 51% |
 | Noisy log | 39% |
-| **Average** | **50%** |
+| **Average** | **48%** |
 
-The token estimate uses `ceil(characters / 4)`. It is suitable for relative before/after comparisons, not billing claims. Byte counts are also reported.
+The token estimate uses `ceil(characters / 4)`. It is suitable for relative before/after comparisons, not billing claims. Byte counts and absolute estimated tokens saved are also reported; gains below 50 tokens are labeled as small.
 
 ## Architecture
 
@@ -84,7 +85,8 @@ select deterministic filter
     |
     +--> git status: group files by state
     +--> git diff: retain changed lines, drop metadata/context
-    +--> git log: retain short hash, refs, subject, author, and date
+    +--> git log: retain short hash, refs, subject, author, date,
+    |             and up to three useful body lines
     +--> tests: collapse passes, retain failures and summaries
     +--> logs: collapse progress and repeated lines
     |
@@ -99,6 +101,8 @@ Filters are pure functions, so the same pipeline can later sit behind a GitHub C
 - The tool does not execute through a shell. Compound shell expressions and interactive commands are out of scope.
 - Stdout and stderr are captured separately and presented as stdout followed by stderr; exact interleaving is not preserved.
 - Filtering is conservative, but any lossy transform can hide useful context. The recovery file and `--raw` are escape hatches.
+- Git log patch/stat/name-list flags and explicit custom formats are preserved rather than destructively reinterpreted.
+- Git log does not impose hidden commit limits or suppress merge commits.
 - This measures command-output reduction, not total Copilot usage, total conversation context, or billing.
 - Streaming, agent hooks, MCP, telemetry, dashboards, custom configuration, and a broad command registry are deliberately deferred.
 
