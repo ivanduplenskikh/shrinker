@@ -175,6 +175,56 @@ test("CLI treats non-keyword top-level input as the command to wrap", () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /shorthand works/);
+  assert.doesNotMatch(result.stderr, /\[shrink\]/);
+});
+
+test("CLI prints per-run measurements only when requested", () => {
+  const cli = path.join(process.cwd(), "dist", "src", "cli.js");
+  const result = spawnSync(
+    process.execPath,
+    [
+      cli,
+      "--metrics",
+      "--no-stats",
+      "--no-save",
+      process.execPath,
+      "-e",
+      "process.stdout.write('measure me')",
+    ],
+    { encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /\[shrink\].*est\. tokens/);
+});
+
+test("CLI does not emit recovery hints for Git metadata-only compaction", () => {
+  const cli = path.join(process.cwd(), "dist", "src", "cli.js");
+  const input = Array.from(
+    { length: 8 },
+    (_, index) =>
+      `commit ${String(index).padStart(40, "a")}\nAuthor: Developer <developer@example.com>\nDate: Thu Aug 21 12:30:00 2026 +0200\n\n    Commit ${index}`,
+  ).join("\n\n");
+  const result = spawnSync(
+    process.execPath,
+    [cli, "pipe", "--kind", "git-log", "--no-stats"],
+    { encoding: "utf8", input },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stderr, /\[full: shrink raw/);
+});
+
+test("CLI does not emit recovery hints for reproducible wrapped Git history", () => {
+  const cli = path.join(process.cwd(), "dist", "src", "cli.js");
+  const result = spawnSync(
+    process.execPath,
+    [cli, "--no-stats", "git", "log", "-n", "10"],
+    { encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stderr, /\[full: shrink raw/);
 });
 
 test("CLI help is a successful reserved command", () => {
@@ -184,5 +234,8 @@ test("CLI help is a successful reserved command", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /shrink <command> \[args\.\.\.\]/);
     assert.match(result.stdout, /shrink stats/);
+    assert.match(result.stdout, /shrink last/);
+    assert.match(result.stdout, /shrink raw/);
+    assert.match(result.stdout, /--metrics/);
   }
 });

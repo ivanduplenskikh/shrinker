@@ -10,7 +10,7 @@ this POC proves that a few conservative, deterministic filters can save useful c
 - Filters for Git status, Git diff, test output, and generic logs.
 - Failures, warnings, changed paths, and command exit codes are preserved.
 - Omitted raw output is saved locally for recovery.
-- Every filtered run reports bytes and approximate before/after tokens.
+- Optional per-run metrics report bytes and approximate before/after tokens.
 - Local SQLite statistics accumulate savings across runs.
 - No command output leaves the machine.
 
@@ -45,17 +45,20 @@ shrink <command> [args...]
 shrink exec [options] [--] <command> [args...]
 shrink pipe [options]
 shrink stats [--json]
+shrink last [--path]
+shrink raw <capture-id> [--path]
 shrink help
 
 --kind <auto|git-status|git-diff|git-log|test|log>
 --max-lines <number>       default: 120
 --per-file-lines <number>  default: 40
 --raw                      bypass filtering
+--metrics                  print per-run savings and duration
 --no-save                  do not save omitted raw output
 --no-stats                 do not record this run
 ```
 
-`help`, `stats`, `pipe`, and `exec` are reserved shrink commands. Every other top-level token starts a wrapped command, so `shrink git log` is equivalent to `shrink exec git log`. The `--` separator remains optional because npm's PowerShell shim may consume it. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified.
+`help`, `stats`, `last`, `raw`, `pipe`, and `exec` are reserved shrink commands. Every other top-level token starts a wrapped command, so `shrink git log` is equivalent to `shrink exec git log`. The `--` separator remains optional because npm's PowerShell shim may consume it. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified.
 
 ## Savings statistics
 
@@ -72,7 +75,22 @@ The summary shows all-time and last-seven-day savings plus a breakdown by filter
 node dist\src\cli.js exec --no-stats -- git log -n 10
 ```
 
-When meaningful content is omitted, the full capture is saved under `~/.shrink/raw`. The cache is limited to 20 files. File names contain only the executable name, not command arguments. Git-log compaction that removes only verbose metadata requires at least 50 estimated tokens of savings before creating a recovery file; omitted commit or body content is always recoverable. Use `--no-save` for output that should not be persisted.
+Detailed per-run measurements are hidden by default so agents do not spend tokens reading wrapper telemetry. Enable them for benchmarking or demos:
+
+```powershell
+shrink --metrics git log -n 10
+```
+
+When meaningful content is omitted, the full capture is saved under `~/.shrink/raw` and a compact exact-recovery hint such as `[full: shrink raw ab12cd34]` is printed instead of an absolute path. Retrieve it only when needed:
+
+```powershell
+shrink raw ab12cd34
+shrink raw ab12cd34 --path
+shrink last
+shrink last --path
+```
+
+`raw` retrieves the exact capture referenced by a hint; `last` is a convenience for human use. The cache uses atomic publication and best-effort rotation to retain up to 20 recent files. File names contain only the executable name, not command arguments. Wrapped `git log` output never creates a recovery file or hint because the full history can be reproduced by rerunning Git; piped Git-log text still gets a recovery hint when meaningful content is omitted. Use `--no-save` for other output that should not be persisted.
 
 ## Demo
 
@@ -113,7 +131,7 @@ select deterministic filter
     +--> logs: collapse progress and repeated lines
     |
     v
-compact output + savings line + optional raw recovery file
+compact output + optional metrics + meaningful-omission recovery hint
 ```
 
 Filters are pure functions, so the same pipeline can later sit behind a GitHub Copilot hook or MCP server without rewriting the compression logic.

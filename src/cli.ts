@@ -4,18 +4,21 @@ import path from "node:path";
 import { applyFilter } from "./filters/select-filter.js";
 import type { FilterKind } from "./filters/types.js";
 import { runCommand } from "./execution/run-command.js";
-import { saveRawOutput } from "./execution/raw-output-store.js";
+import { getLatestRawOutput, getRawOutput, saveRawOutput } from "./execution/raw-output-store.js";
 import { cleanText } from "./formatting/ansi.js";
 import { formatMeasurements, measure } from "./metrics/measure.js";
 import { defaultStatsPath, formatStats, getStats, recordRun } from "./metrics/stats-store.js";
 
 interface CliOptions {
-  mode: "exec" | "pipe" | "stats" | "help";
+  mode: "exec" | "pipe" | "stats" | "last" | "raw-output" | "help";
   kind: FilterKind;
   raw: boolean;
   save: boolean;
   trackStats: boolean;
+  showMetrics: boolean;
   json: boolean;
+  showPath: boolean;
+  captureId?: string;
   maxLines: number;
   perFileLines: number;
   command: string[];
@@ -27,6 +30,8 @@ function usage(): string {
   shrink exec [options] [--] <command> [args...]
   shrink pipe [options]
   shrink stats [--json]
+  shrink last [--path]
+  shrink raw <capture-id> [--path]
   shrink help
 
 Options:
@@ -34,6 +39,7 @@ Options:
   --max-lines <number>       default: 120
   --per-file-lines <number>  default: 40
   --raw                      bypass filtering
+  --metrics                  print per-run savings and duration
   --no-save                  do not save omitted raw output
   --no-stats                 do not record this run
   --help`;
@@ -53,8 +59,15 @@ function parseArgs(args: string[]): CliOptions {
   if (!first || first === "help" || first === "--help" || first === "-h") {
     if (first) args.shift();
     mode = "help";
-  } else if (first === "exec" || first === "pipe" || first === "stats") {
-    mode = args.shift() as "exec" | "pipe" | "stats";
+  } else if (
+    first === "exec" ||
+    first === "pipe" ||
+    first === "stats" ||
+    first === "last" ||
+    first === "raw"
+  ) {
+    const reserved = args.shift();
+    mode = reserved === "raw" ? "raw-output" : reserved as "exec" | "pipe" | "stats" | "last";
   } else {
     mode = "exec";
   }
@@ -63,7 +76,10 @@ function parseArgs(args: string[]): CliOptions {
   let raw = false;
   let save = true;
   let trackStats = true;
+  let showMetrics = false;
   let json = false;
+  let showPath = false;
+  let captureId: string | undefined;
   let maxLines = 120;
   let perFileLines = 40;
 
@@ -74,9 +90,15 @@ function parseArgs(args: string[]): CliOptions {
       break;
     }
     if (option === "--raw") raw = true;
+    else if (option === "--metrics") showMetrics = true;
     else if (option === "--no-save") save = false;
     else if (option === "--no-stats") trackStats = false;
     else if (option === "--json" && mode === "stats") json = true;
+    else if (option === "--path" && mode === "last") showPath = true;
+    else if (option === "--path" && mode === "raw-output") showPath = true;
+    else if (mode === "raw-output" && option && !option.startsWith("-") && !captureId) {
+      captureId = option;
+    }
     else if (option === "--kind") {
       const value = args.shift() as FilterKind | undefined;
       if (
@@ -101,8 +123,23 @@ function parseArgs(args: string[]): CliOptions {
   if (args[0] === "--") args.shift();
   if (mode === "exec" && args.length === 0) throw new Error("exec requires a command");
   if (mode === "stats" && args.length > 0) throw new Error("stats does not accept command arguments");
+  if (mode === "last" && args.length > 0) throw new Error("last does not accept command arguments");
+  if (mode === "raw-output" && !captureId) throw new Error("raw requires a capture ID");
 
-  return { mode, kind, raw, save, trackStats, json, maxLines, perFileLines, command: args };
+  return {
+    mode,
+    kind,
+    raw,
+    save,
+    trackStats,
+    showMetrics,
+    json,
+    showPath,
+    ...(captureId ? { captureId } : {}),
+    maxLines,
+    perFileLines,
+    command: args,
+  };
 }
 
 async function readStdin(): Promise<string> {
@@ -141,7 +178,9 @@ async function render(
   const output = cleanText(result.output);
   const measurements = measure(rawOutput, output);
   process.stdout.write(`${output}\n`);
-  process.stderr.write(`${formatMeasurements(measurements, durationMs)}\n`);
+  if (options.showMetrics) {
+    process.stderr.write(`${formatMeasurements(measurements, durationMs)}\n`);
+  }
 
   if (options.trackStats) {
     try {
@@ -160,11 +199,15 @@ async function render(
     }
   }
 
-  const shouldSave =
-    result.recovery !== "threshold" || measurements.estimatedTokensSaved >= 50;
+  const isWrappedGitLog = options.mode === "exec" && result.kind === "git-log";
+  const shouldSave = result.recovery !== "threshold" && !isWrappedGitLog;
   if (result.omitted && options.save && shouldSave) {
-    const path = await saveRawOutput(rawOutput, options.command);
-    process.stderr.write(`[shrink] full output: ${path}\n`);
+    try {
+      const capture = await saveRawOutput(rawOutput, options.command);
+      process.stderr.write(`[full: shrink raw ${capture.id}]\n`);
+    } catch (error) {
+      process.stderr.write(`[shrink] could not save full output: ${String(error)}\n`);
+    }
   }
 }
 
@@ -179,6 +222,20 @@ async function main(): Promise<void> {
   if (options.mode === "stats") {
     const summary = getStats(defaultStatsPath());
     process.stdout.write(`${options.json ? JSON.stringify(summary, null, 2) : formatStats(summary)}\n`);
+    return;
+  }
+
+  if (options.mode === "last") {
+    const latest = await getLatestRawOutput();
+    if (!latest) throw new Error("No saved raw output");
+    process.stdout.write(options.showPath ? `${latest.path}\n` : latest.output);
+    return;
+  }
+
+  if (options.mode === "raw-output") {
+    const capture = await getRawOutput(options.captureId ?? "");
+    if (!capture) throw new Error(`Raw capture not found: ${options.captureId}`);
+    process.stdout.write(options.showPath ? `${capture.path}\n` : capture.output);
     return;
   }
 
