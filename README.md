@@ -33,15 +33,19 @@ To install the `shrink` command locally:
 
 ```powershell
 npm link
-shrink exec -- git status
+shrink git status
+shrink git log -n 10
+shrink npm test
 ```
 
 ## CLI
 
 ```text
+shrink <command> [args...]
 shrink exec [options] [--] <command> [args...]
 shrink pipe [options]
 shrink stats [--json]
+shrink help
 
 --kind <auto|git-status|git-diff|git-log|test|log>
 --max-lines <number>       default: 120
@@ -51,7 +55,7 @@ shrink stats [--json]
 --no-stats                 do not record this run
 ```
 
-`exec` automatically selects a filter from the command. The `--` separator is optional because npm's PowerShell shim may consume it; both `shrink exec -- git log` and `shrink exec git log` are supported. `pipe` defaults to the generic log filter unless `--kind` is specified.
+`help`, `stats`, `pipe`, and `exec` are reserved shrink commands. Every other top-level token starts a wrapped command, so `shrink git log` is equivalent to `shrink exec git log`. The `--` separator remains optional because npm's PowerShell shim may consume it. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified.
 
 ## Savings statistics
 

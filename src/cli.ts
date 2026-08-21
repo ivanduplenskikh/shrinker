@@ -10,7 +10,7 @@ import { formatMeasurements, measure } from "./metrics/measure.js";
 import { defaultStatsPath, formatStats, getStats, recordRun } from "./metrics/stats-store.js";
 
 interface CliOptions {
-  mode: "exec" | "pipe" | "stats";
+  mode: "exec" | "pipe" | "stats" | "help";
   kind: FilterKind;
   raw: boolean;
   save: boolean;
@@ -23,9 +23,11 @@ interface CliOptions {
 
 function usage(): string {
   return `Usage:
+  shrink <command> [args...]
   shrink exec [options] [--] <command> [args...]
   shrink pipe [options]
   shrink stats [--json]
+  shrink help
 
 Options:
   --kind <auto|git-status|git-diff|git-log|test|log>
@@ -46,8 +48,16 @@ function parsePositiveInteger(value: string | undefined, option: string): number
 }
 
 function parseArgs(args: string[]): CliOptions {
-  const mode = args.shift();
-  if (mode !== "exec" && mode !== "pipe" && mode !== "stats") throw new Error(usage());
+  const first = args[0];
+  let mode: CliOptions["mode"];
+  if (!first || first === "help" || first === "--help" || first === "-h") {
+    if (first) args.shift();
+    mode = "help";
+  } else if (first === "exec" || first === "pipe" || first === "stats") {
+    mode = args.shift() as "exec" | "pipe" | "stats";
+  } else {
+    mode = "exec";
+  }
 
   let kind: FilterKind = "auto";
   let raw = false;
@@ -59,7 +69,10 @@ function parseArgs(args: string[]): CliOptions {
 
   while (args.length > 0 && args[0] !== "--") {
     const option = args.shift();
-    if (option === "--help") throw new Error(usage());
+    if (option === "--help" || option === "-h") {
+      mode = "help";
+      break;
+    }
     if (option === "--raw") raw = true;
     else if (option === "--no-save") save = false;
     else if (option === "--no-stats") trackStats = false;
@@ -86,7 +99,7 @@ function parseArgs(args: string[]): CliOptions {
   }
 
   if (args[0] === "--") args.shift();
-  if (mode === "exec" && args.length === 0) throw new Error("exec requires a command after --");
+  if (mode === "exec" && args.length === 0) throw new Error("exec requires a command");
   if (mode === "stats" && args.length > 0) throw new Error("stats does not accept command arguments");
 
   return { mode, kind, raw, save, trackStats, json, maxLines, perFileLines, command: args };
@@ -157,6 +170,11 @@ async function render(
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
+
+  if (options.mode === "help") {
+    process.stdout.write(`${usage()}\n`);
+    return;
+  }
 
   if (options.mode === "stats") {
     const summary = getStats(defaultStatsPath());

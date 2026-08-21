@@ -157,3 +157,32 @@ test("CLI accepts an exec command when a PowerShell shim consumes the separator"
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /wrapped successfully/);
 });
+
+test("CLI treats non-keyword top-level input as the command to wrap", () => {
+  const cli = path.join(process.cwd(), "dist", "src", "cli.js");
+  const result = spawnSync(
+    process.execPath,
+    [
+      cli,
+      "--no-stats",
+      "--no-save",
+      process.execPath,
+      "-e",
+      "process.stdout.write('shorthand works')",
+    ],
+    { encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /shorthand works/);
+});
+
+test("CLI help is a successful reserved command", () => {
+  const cli = path.join(process.cwd(), "dist", "src", "cli.js");
+  for (const help of [["help"], ["--help"], []]) {
+    const result = spawnSync(process.execPath, [cli, ...help], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /shrink <command> \[args\.\.\.\]/);
+    assert.match(result.stdout, /shrink stats/);
+  }
+});
