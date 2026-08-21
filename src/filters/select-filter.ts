@@ -1,5 +1,6 @@
 import { filterGenericLog } from "./generic-log.js";
 import { filterGitDiff } from "./git-diff.js";
+import { filterGitLog } from "./git-log.js";
 import { filterGitStatus } from "./git-status.js";
 import { filterTestOutput } from "./test-output.js";
 import type { FilterKind, FilterOptions, FilterResult, OutputFilter } from "./types.js";
@@ -7,6 +8,7 @@ import type { FilterKind, FilterOptions, FilterResult, OutputFilter } from "./ty
 const FILTERS: Record<Exclude<FilterKind, "auto">, OutputFilter> = {
   "git-status": filterGitStatus,
   "git-diff": filterGitDiff,
+  "git-log": filterGitLog,
   test: filterTestOutput,
   log: filterGenericLog,
 };
@@ -14,6 +16,7 @@ const FILTERS: Record<Exclude<FilterKind, "auto">, OutputFilter> = {
 export function detectFilter(command: string[]): Exclude<FilterKind, "auto"> {
   const normalized = command.join(" ").toLowerCase();
   if (/\bgit\s+status\b/.test(normalized)) return "git-status";
+  if (/\bgit\s+log\b/.test(normalized)) return "git-log";
   if (/\bgit\s+(?:diff|show)\b/.test(normalized)) return "git-diff";
   if (/\b(test|pytest|jest|vitest|cargo test|go test|dotnet test|rspec)\b/.test(normalized)) {
     return "test";

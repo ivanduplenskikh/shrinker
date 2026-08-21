@@ -22,6 +22,7 @@ npm install
 npm run build
 node dist\src\cli.js exec -- git status
 node dist\src\cli.js exec -- git diff
+node dist\src\cli.js exec -- git log -n 10
 node dist\src\cli.js exec -- npm test
 Get-Content .\tests\fixtures\generic-log.txt -Raw |
   node dist\src\cli.js pipe --kind log
@@ -40,7 +41,7 @@ shrink exec -- git status
 shrink exec [options] -- <command> [args...]
 shrink pipe [options]
 
---kind <auto|git-status|git-diff|test|log>
+--kind <auto|git-status|git-diff|git-log|test|log>
 --max-lines <number>       default: 120
 --per-file-lines <number>  default: 40
 --raw                      bypass filtering
@@ -63,9 +64,10 @@ Current representative fixtures:
 |---|---:|
 | Git status | 62% |
 | Git diff | 26% |
+| Git log | 70% |
 | Test failure | 51% |
 | Noisy log | 39% |
-| **Average** | **45%** |
+| **Average** | **50%** |
 
 The token estimate uses `ceil(characters / 4)`. It is suitable for relative before/after comparisons, not billing claims. Byte counts are also reported.
 
@@ -82,6 +84,7 @@ select deterministic filter
     |
     +--> git status: group files by state
     +--> git diff: retain changed lines, drop metadata/context
+    +--> git log: retain short hash, refs, subject, author, and date
     +--> tests: collapse passes, retain failures and summaries
     +--> logs: collapse progress and repeated lines
     |

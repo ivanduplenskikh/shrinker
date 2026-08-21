@@ -23,7 +23,7 @@ function usage(): string {
   shrink pipe [options]
 
 Options:
-  --kind <auto|git-status|git-diff|test|log>
+  --kind <auto|git-status|git-diff|git-log|test|log>
   --max-lines <number>       default: 120
   --per-file-lines <number>  default: 40
   --raw                      bypass filtering
@@ -56,8 +56,11 @@ function parseArgs(args: string[]): CliOptions {
     else if (option === "--no-save") save = false;
     else if (option === "--kind") {
       const value = args.shift() as FilterKind | undefined;
-      if (!value || !["auto", "git-status", "git-diff", "test", "log"].includes(value)) {
-        throw new Error("--kind must be auto, git-status, git-diff, test, or log");
+      if (
+        !value ||
+        !["auto", "git-status", "git-diff", "git-log", "test", "log"].includes(value)
+      ) {
+        throw new Error("--kind must be auto, git-status, git-diff, git-log, test, or log");
       }
       kind = value;
     } else if (option === "--max-lines") {

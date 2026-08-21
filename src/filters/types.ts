@@ -1,4 +1,10 @@
-export type FilterKind = "auto" | "git-status" | "git-diff" | "test" | "log";
+export type FilterKind =
+  | "auto"
+  | "git-status"
+  | "git-diff"
+  | "git-log"
+  | "test"
+  | "log";
 
 export interface FilterOptions {
   maxLines: number;

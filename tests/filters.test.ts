@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { filterGenericLog } from "../src/filters/generic-log.js";
 import { filterGitDiff } from "../src/filters/git-diff.js";
+import { filterGitLog } from "../src/filters/git-log.js";
 import { filterGitStatus } from "../src/filters/git-status.js";
 import { filterTestOutput } from "../src/filters/test-output.js";
 import { measure } from "../src/metrics/measure.js";
@@ -35,6 +36,17 @@ test("git diff keeps files and changed lines", async () => {
   assert.match(result.output, /ERROR|compact/);
   assert.doesNotMatch(result.output, /^index /m);
   assert.ok(measure(raw, result.output).reductionPercent >= 25);
+});
+
+test("git log keeps commit identity and subjects while removing bodies", async () => {
+  const raw = await fixture("git-log.txt");
+  const result = filterGitLog(raw, options);
+
+  assert.match(result.output, /7f38b6e2b5 \(HEAD -> feature\/token-shrinker\)/);
+  assert.match(result.output, /Add deterministic test output compression/);
+  assert.match(result.output, /Ada Developer, 2026-08-21/);
+  assert.doesNotMatch(result.output, /Collapse passing test details/);
+  assert.ok(measure(raw, result.output).reductionPercent >= 55);
 });
 
 test("test output collapses passes and preserves failure details", async () => {

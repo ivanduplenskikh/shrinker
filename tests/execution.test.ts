@@ -17,6 +17,7 @@ test("command execution captures output and preserves non-zero exit code", async
 test("filter detection recognizes supported command families", () => {
   assert.equal(detectFilter(["git", "status"]), "git-status");
   assert.equal(detectFilter(["git", "diff", "--cached"]), "git-diff");
+  assert.equal(detectFilter(["git", "log", "-n", "10"]), "git-log");
   assert.equal(detectFilter(["npm", "test"]), "test");
   assert.equal(detectFilter(["node", "server.js"]), "log");
 });

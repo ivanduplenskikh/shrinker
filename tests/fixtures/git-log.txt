@@ -1,0 +1,25 @@
+commit 7f38b6e2b511bb21dd02fbb612d6f4936d6396ba (HEAD -> feature/token-shrinker)
+Author: Ada Developer <ada@example.com>
+Date:   Thu Aug 21 12:30:00 2026 +0200
+
+    Add deterministic test output compression
+
+    Collapse passing test details while preserving failure messages,
+    stack traces, and the final test summary.
+
+commit a27c44c3d957955b611614eb380628f60217d03a
+Author: Grace Engineer <grace@example.com>
+Date:   Wed Aug 20 16:15:00 2026 +0200
+
+    Preserve command exit codes
+
+    Return the wrapped process exit code so agents can still identify
+    failing commands after their output has been compressed.
+
+commit 42d934db022cf6869478ad499f8f1b6c98dd2ac9 (origin/main, main)
+Author: Linus Maintainer <linus@example.com>
+Date:   Tue Aug 19 09:10:00 2026 +0200
+
+    Scaffold the shrink CLI
+
+    Add TypeScript compilation, command parsing, and initial fixtures.
