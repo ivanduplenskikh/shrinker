@@ -1,0 +1,28 @@
+ RUN  v3.2.1 C:/p/sample
+
+ ✓ tests/math.test.ts > adds two positive numbers 2ms
+ ✓ tests/math.test.ts > adds negative numbers 1ms
+ ✓ tests/math.test.ts > handles zero 1ms
+ ✓ tests/user.test.ts > creates a user 4ms
+ ✓ tests/user.test.ts > rejects duplicate email 3ms
+ ✓ tests/user.test.ts > normalizes display name 2ms
+ ✓ tests/api.test.ts > returns health status 8ms
+ ✓ tests/api.test.ts > rejects missing authorization 5ms
+ ✓ tests/api.test.ts > paginates results 7ms
+ ✓ tests/cache.test.ts > stores values 2ms
+ ✓ tests/cache.test.ts > expires values 3ms
+ ✓ tests/cache.test.ts > deletes values 2ms
+ × tests/token.test.ts > preserves failure output 14ms
+   → expected "important error" to contain "failure context"
+
+ FAIL  tests/token.test.ts > preserves failure output
+AssertionError: expected 'important error' to contain 'failure context'
+Expected: "failure context"
+Received: "important error"
+ ❯ tests/token.test.ts:42:20
+ ❯ src/token.ts:18:9
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  1 failed | 12 passed (13)
+   Start at  11:43:05
+   Duration  1.42s (transform 120ms, setup 45ms, collect 300ms, tests 68ms)

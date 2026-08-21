@@ -1,0 +1,22 @@
+{
+  "name": "shrinker",
+  "version": "0.1.0",
+  "description": "Local deterministic command-output shrinker for coding agents",
+  "type": "module",
+  "bin": {
+    "shrink": "./dist/src/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build --silent && node --test \"dist/tests/*.test.js\"",
+    "demo": "npm run build --silent && node dist/demo/run-demo.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}
