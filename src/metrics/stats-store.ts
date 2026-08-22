@@ -158,23 +158,42 @@ function formatRuns(value: number): string {
   return `${formatInteger(value)} ${value === 1 ? "run" : "runs"}`;
 }
 
+function formatPercent(value: number): string {
+  return `${value}%`;
+}
+
+function makeBar(value: number, maxValue: number, width = 18): string {
+  if (maxValue <= 0 || value <= 0) return "-".repeat(width);
+  const filled = Math.max(1, Math.round((value / maxValue) * width));
+  return `${"#".repeat(Math.min(width, filled))}${"-".repeat(Math.max(0, width - filled))}`;
+}
+
 export function formatStats(summary: StatsSummary): string {
+  const allTime = `All time: ${formatRuns(summary.total.runs)} | est. ${formatInteger(summary.total.estimatedTokensSaved)} tokens saved | -${summary.total.reductionPercent}%`;
+  const last7 = `Last 7 days: ${formatRuns(summary.last7Days.runs)} | est. ${formatInteger(summary.last7Days.estimatedTokensSaved)} tokens saved | -${summary.last7Days.reductionPercent}%`;
+
   const lines = [
-    "Shrink token savings",
-    `All time: ${formatRuns(summary.total.runs)} | est. ${formatInteger(summary.total.estimatedTokensSaved)} tokens saved | -${summary.total.reductionPercent}%`,
-    `Last 7 days: ${formatRuns(summary.last7Days.runs)} | est. ${formatInteger(summary.last7Days.estimatedTokensSaved)} tokens saved | -${summary.last7Days.reductionPercent}%`,
+    "Shrink Token Savings Dashboard",
+    "================================",
+    "Overview",
+    `  ${allTime}`,
+    `  ${last7}`,
   ];
 
   if (summary.byFilter.length > 0) {
-    lines.push("", "By filter:");
-    const width = Math.max(...summary.byFilter.map((row) => row.filterKind.length));
+    lines.push("", "By Filter", "  Filter           Runs        Raw         Output      Saved       Reduce   Share   Savings Bar");
+    lines.push("  ---------------  ----------  ----------  ----------  ----------  -------  ------  ------------------");
+    const maxSaved = Math.max(...summary.byFilter.map((row) => row.estimatedTokensSaved));
+    const totalSaved = summary.total.estimatedTokensSaved;
     for (const row of summary.byFilter) {
+      const share =
+        totalSaved > 0 ? Math.round((row.estimatedTokensSaved / totalSaved) * 100) : 0;
       lines.push(
-        `  ${row.filterKind.padEnd(width)}  ${formatRuns(row.runs).padStart(8)}  ${formatInteger(row.estimatedTokensSaved).padStart(8)} saved  -${row.reductionPercent}%`,
+        `  ${row.filterKind.padEnd(15)}  ${formatRuns(row.runs).padStart(10)}  ${formatInteger(row.rawEstimatedTokens).padStart(10)}  ${formatInteger(row.outputEstimatedTokens).padStart(10)}  ${formatInteger(row.estimatedTokensSaved).padStart(10)}  ${`-${formatPercent(row.reductionPercent)}`.padStart(7)}  ${formatPercent(share).padStart(6)}  ${makeBar(row.estimatedTokensSaved, maxSaved)}`,
       );
     }
   }
 
-  lines.push("", `Database: ${summary.databasePath}`);
+  lines.push("", "Storage", `  Database: ${summary.databasePath}`);
   return lines.join("\n");
 }
