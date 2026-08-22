@@ -60,6 +60,33 @@ shrink help
 
 `help`, `stats`, `last`, `raw`, `pipe`, and `exec` are reserved shrink commands. Every other top-level token starts a wrapped command, so `shrink git log` is equivalent to `shrink exec git log`. The `--` separator remains optional because npm's PowerShell shim may consume it. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified.
 
+## Automatic PowerShell routing
+
+The optional profile integration routes allowlisted commands through `shrink` and invokes the native executable for everything else. Install it after `npm link`:
+
+```powershell
+if (!(Test-Path $PROFILE)) {
+    New-Item -ItemType File -Path $PROFILE -Force | Out-Null
+}
+
+$integration = (Resolve-Path .\integrations\shrink-profile.ps1).Path
+Add-Content $PROFILE "`n. `"$integration`""
+. $PROFILE
+```
+
+The default rules are:
+
+```text
+git status  -> shrink git status
+git diff    -> shrink git diff
+git log     -> shrink git log
+npm test    -> shrink npm test
+
+git push, git fetch, npm install, and all other commands -> native executable
+```
+
+Edit `$global:ShrinkPowerShellRules` in `integrations\shrink-profile.ps1` to change the allowlist. The lightweight proxy currently matches the first subcommand, so forms with leading global options such as `git -C <path> log` run natively.
+
 ## Savings statistics
 
 Filtered runs are recorded locally in `~/.shrink/stats.db`. The database stores only measurements, filter kind, executable basename, duration, omission state, and exit code. It does **not** store command arguments or command output.
