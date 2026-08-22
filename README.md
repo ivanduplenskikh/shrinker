@@ -81,11 +81,15 @@ git status  -> shrink git status
 git diff    -> shrink git diff
 git log     -> shrink git log
 npm test    -> shrink npm test
+docker ps   -> shrink docker ps
+kubectl get -> shrink kubectl get
+gh pr list  -> shrink gh pr list
+rg/find/tail/cat/ls/dir -> shrink <command>
 
 git push, git fetch, npm install, and all other commands -> native executable
 ```
 
-Edit `$global:ShrinkPowerShellRules` in `integrations\shrink-profile.ps1` to change the allowlist. The lightweight proxy currently matches the first subcommand, so forms with leading global options such as `git -C <path> log` run natively.
+Edit `$global:ShrinkPowerShellRules` in `integrations\shrink-profile.ps1` to change the allowlist. The router is now option-aware for common global flags, so forms like `git -C <path> log` and `kubectl --context prod get pods` are routed correctly.
 
 ## Savings statistics
 
