@@ -1,4 +1,5 @@
 import { access } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
@@ -29,7 +30,101 @@ async function resolveWindowsCommand(command: string): Promise<string> {
   return command;
 }
 
+function parseAliasArgs(args: string[]): { paths: string[]; unsupportedOption?: string } {
+  const paths: string[] = [];
+  for (const arg of args) {
+    if (arg.startsWith("-")) return { paths, unsupportedOption: arg };
+    paths.push(arg);
+  }
+  return { paths };
+}
+
+async function runWindowsAlias(command: string, args: string[]): Promise<CommandResult | undefined> {
+  if (process.platform !== "win32") return undefined;
+
+  const alias = command.toLowerCase();
+  if (alias !== "cat" && alias !== "ls" && alias !== "dir") return undefined;
+
+  const started = performance.now();
+  const parsed = parseAliasArgs(args);
+  if (parsed.unsupportedOption) {
+    return {
+      stdout: "",
+      stderr: `Unsupported ${alias} option in shrink alias mode: ${parsed.unsupportedOption}`,
+      combined: `Unsupported ${alias} option in shrink alias mode: ${parsed.unsupportedOption}`,
+      exitCode: 2,
+      durationMs: Math.round(performance.now() - started),
+    };
+  }
+
+  if (alias === "cat") {
+    const targets = parsed.paths.length > 0 ? parsed.paths : ["-"];
+    if (targets.includes("-")) {
+      return {
+        stdout: "",
+        stderr: "cat alias requires at least one file path",
+        combined: "cat alias requires at least one file path",
+        exitCode: 2,
+        durationMs: Math.round(performance.now() - started),
+      };
+    }
+
+    const parts: string[] = [];
+    for (const target of targets) {
+      try {
+        parts.push(await readFile(target, "utf8"));
+      } catch (error) {
+        const message = (error as NodeJS.ErrnoException).message;
+        return {
+          stdout: "",
+          stderr: message,
+          combined: message,
+          exitCode: 1,
+          durationMs: Math.round(performance.now() - started),
+        };
+      }
+    }
+
+    const stdout = parts.join(parts.length > 1 ? "\n" : "");
+    return {
+      stdout,
+      stderr: "",
+      combined: stdout,
+      exitCode: 0,
+      durationMs: Math.round(performance.now() - started),
+    };
+  }
+
+  const targetPath = parsed.paths[0] ?? ".";
+  try {
+    const entries = await readdir(targetPath, { withFileTypes: true });
+    const lines = entries
+      .map((entry) => (entry.isDirectory() ? `${entry.name}/` : entry.name))
+      .sort((left, right) => left.localeCompare(right));
+    const stdout = lines.join("\n");
+    return {
+      stdout,
+      stderr: "",
+      combined: stdout,
+      exitCode: 0,
+      durationMs: Math.round(performance.now() - started),
+    };
+  } catch (error) {
+    const message = (error as NodeJS.ErrnoException).message;
+    return {
+      stdout: "",
+      stderr: message,
+      combined: message,
+      exitCode: 1,
+      durationMs: Math.round(performance.now() - started),
+    };
+  }
+}
+
 export async function runCommand(command: string, args: string[]): Promise<CommandResult> {
+  const aliasResult = await runWindowsAlias(command, args);
+  if (aliasResult) return aliasResult;
+
   const executable = await resolveWindowsCommand(command);
   const started = performance.now();
 

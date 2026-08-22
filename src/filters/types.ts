@@ -3,6 +3,15 @@ export type FilterKind =
   | "git-status"
   | "git-diff"
   | "git-log"
+  | "git-list"
+  | "npm"
+  | "tail"
+  | "find"
+  | "rg"
+  | "docker"
+  | "kubectl"
+  | "cat"
+  | "gh"
   | "test"
   | "log";
 

@@ -35,7 +35,7 @@ function usage(): string {
   shrink help
 
 Options:
-  --kind <auto|git-status|git-diff|git-log|test|log>
+  --kind <auto|git-status|git-diff|git-log|git-list|npm|tail|find|rg|docker|kubectl|cat|gh|test|log>
   --max-lines <number>       default: 120
   --per-file-lines <number>  default: 40
   --raw                      bypass filtering
@@ -103,9 +103,25 @@ function parseArgs(args: string[]): CliOptions {
       const value = args.shift() as FilterKind | undefined;
       if (
         !value ||
-        !["auto", "git-status", "git-diff", "git-log", "test", "log"].includes(value)
+        ![
+          "auto",
+          "git-status",
+          "git-diff",
+          "git-log",
+          "git-list",
+          "npm",
+          "tail",
+          "find",
+          "rg",
+          "docker",
+          "kubectl",
+          "cat",
+          "gh",
+          "test",
+          "log",
+        ].includes(value)
       ) {
-        throw new Error("--kind must be auto, git-status, git-diff, git-log, test, or log");
+        throw new Error("--kind must be auto, git-status, git-diff, git-log, git-list, npm, tail, find, rg, docker, kubectl, cat, gh, test, or log");
       }
       kind = value;
     } else if (option === "--max-lines") {

@@ -19,13 +19,34 @@ test("command execution captures output and preserves non-zero exit code", async
   assert.match(result.combined, /important error/);
 });
 
+test("Windows alias fallback supports cat and ls", async () => {
+  if (process.platform !== "win32") return;
+
+  const catResult = await runCommand("cat", ["package.json"]);
+  assert.equal(catResult.exitCode, 0, catResult.stderr);
+  assert.match(catResult.stdout, /"name"\s*:\s*"shrinker"/);
+
+  const lsResult = await runCommand("ls", ["src"]);
+  assert.equal(lsResult.exitCode, 0, lsResult.stderr);
+  assert.match(lsResult.stdout, /filters\//);
+});
+
 test("filter detection recognizes supported command families", () => {
   assert.equal(detectFilter(["git", "status"]), "git-status");
   assert.equal(detectFilter(["git", "diff", "--cached"]), "git-diff");
   assert.equal(detectFilter(["git", "log", "-n", "10"]), "git-log");
   assert.equal(detectFilter(["git", "--no-pager", "log", "-n", "10"]), "git-log");
   assert.equal(detectFilter(["git", "-C", "repo", "log"]), "git-log");
+  assert.equal(detectFilter(["git", "branch", "-vv"]), "git-list");
   assert.equal(detectFilter(["npm", "test"]), "test");
+  assert.equal(detectFilter(["npm", "install"]), "npm");
+  assert.equal(detectFilter(["tail", "-n", "200", "app.log"]), "tail");
+  assert.equal(detectFilter(["find", ".", "-name", "*.ts"]), "find");
+  assert.equal(detectFilter(["rg", "TODO", "src"]), "rg");
+  assert.equal(detectFilter(["docker", "ps"]), "docker");
+  assert.equal(detectFilter(["kubectl", "get", "pods"]), "kubectl");
+  assert.equal(detectFilter(["cat", "README.md"]), "cat");
+  assert.equal(detectFilter(["gh", "pr", "list"]), "gh");
   assert.equal(detectFilter(["node", "server.js"]), "log");
 });
 
