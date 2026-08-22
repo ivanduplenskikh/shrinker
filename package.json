@@ -9,8 +9,13 @@
   "scripts": {
     "start": "tsc -w -p tsconfig.json",
     "build": "tsc -p tsconfig.json",
+    "pack": "npm run build --silent && npm pack",
     "test": "npm run build --silent && node --test \"dist/tests/*.test.js\"",
-    "demo": "npm run build --silent && node dist/demo/run-demo.js"
+    "demo": "npm run build --silent && node dist/demo/run-demo.js",
+    "install:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/install-shrink.ps1",
+    "install:agent-rules": "pwsh -ExecutionPolicy Bypass -File ./integrations/install-agent-rules.ps1",
+    "uninstall:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/uninstall-shrink.ps1",
+    "uninstall:agent-rules": "pwsh -ExecutionPolicy Bypass -File ./integrations/uninstall-agent-rules.ps1"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

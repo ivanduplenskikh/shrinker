@@ -11,14 +11,25 @@ export interface CommandResult {
   durationMs: number;
 }
 
+function quoteForCmd(argument: string): string {
+  if (argument.length === 0) return "\"\"";
+  if (!/[\s"^&|<>]/.test(argument)) return argument;
+  return `"${argument.replace(/"/g, '""')}"`;
+}
+
 async function resolveWindowsCommand(command: string): Promise<string> {
   if (process.platform !== "win32" || path.extname(command)) return command;
 
   const pathEntries = (process.env.PATH ?? "").split(path.delimiter);
-  const extensions = (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";");
+  const executableExtensions = new Set([".com", ".exe", ".bat", ".cmd"]);
+  const extensions = (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD")
+    .split(";")
+    .map((extension) => extension.trim().toLowerCase())
+    .filter((extension) => executableExtensions.has(extension));
   for (const directory of pathEntries) {
+    if (!directory) continue;
     for (const extension of extensions) {
-      const candidate = path.join(directory, `${command}${extension.toLowerCase()}`);
+      const candidate = path.join(directory, `${command}${extension}`);
       try {
         await access(candidate);
         return candidate;
@@ -121,15 +132,20 @@ async function runWindowsAlias(command: string, args: string[]): Promise<Command
   }
 }
 
-export async function runCommand(command: string, args: string[]): Promise<CommandResult> {
-  const aliasResult = await runWindowsAlias(command, args);
-  if (aliasResult) return aliasResult;
-
-  const executable = await resolveWindowsCommand(command);
+async function spawnAndCapture(
+  executable: string,
+  args: string[],
+  viaCmdProxy: boolean,
+): Promise<CommandResult> {
   const started = performance.now();
 
   return await new Promise<CommandResult>((resolve, reject) => {
-    const child = spawn(executable, args, {
+    const spawnCommand = viaCmdProxy ? "cmd.exe" : executable;
+    const spawnArgs = viaCmdProxy
+      ? ["/d", "/s", "/c", `${quoteForCmd(executable)} ${args.map(quoteForCmd).join(" ")}`]
+      : args;
+
+    const child = spawn(spawnCommand, spawnArgs, {
       cwd: process.cwd(),
       env: process.env,
       shell: false,
@@ -153,4 +169,21 @@ export async function runCommand(command: string, args: string[]): Promise<Comma
       });
     });
   });
+}
+
+export async function runCommand(command: string, args: string[]): Promise<CommandResult> {
+  const aliasResult = await runWindowsAlias(command, args);
+  if (aliasResult) return aliasResult;
+
+  const executable = await resolveWindowsCommand(command);
+
+  try {
+    return await spawnAndCapture(executable, args, false);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (process.platform === "win32" && (code === "EFTYPE" || code === "EINVAL")) {
+      return await spawnAndCapture(executable, args, true);
+    }
+    throw error;
+  }
 }

@@ -67,6 +67,34 @@ function Use-ShrinkRouting {
     return $allowlist -contains $subcommand
 }
 
+function Get-ShrinkCommandPath {
+    $candidates = Get-Command shrink -All -ErrorAction SilentlyContinue
+    if (-not $candidates) {
+        return $null
+    }
+
+    foreach ($candidate in $candidates) {
+        $source = [string]$candidate.Source
+        if ($source -and $source.ToLowerInvariant().EndsWith(".cmd")) {
+            return $source
+        }
+    }
+    foreach ($candidate in $candidates) {
+        $source = [string]$candidate.Source
+        if ($source -and $source.ToLowerInvariant().EndsWith(".exe")) {
+            return $source
+        }
+    }
+    foreach ($candidate in $candidates) {
+        $source = [string]$candidate.Source
+        if ($source -and $source.ToLowerInvariant().EndsWith(".ps1")) {
+            return $source
+        }
+    }
+
+    return [string]($candidates | Select-Object -First 1).Source
+}
+
 function Invoke-ShrinkOrNative {
     param(
         [string]$CommandName,
@@ -74,10 +102,10 @@ function Invoke-ShrinkOrNative {
     )
 
     $routeToShrink = Use-ShrinkRouting -CommandName $CommandName -Arguments $Arguments
-    $shrinkCommand = Get-Command shrink -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    $shrinkCommand = Get-ShrinkCommandPath
 
     if ($routeToShrink -and $shrinkCommand) {
-        & $shrinkCommand.Source $CommandName @Arguments
+        & $shrinkCommand $CommandName @Arguments
         return
     }
 

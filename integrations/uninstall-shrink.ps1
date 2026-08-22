@@ -48,4 +48,5 @@ if (-not $SkipUnlink) {
 }
 
 Remove-ProfileIntegration -ProfileFile $ProfilePath
+Write-Host "If this terminal previously loaded shrink-profile.ps1, restart terminal or remove Function:git/Function:rg wrappers from current session."
 Write-Host "Uninstall complete."

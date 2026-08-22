@@ -2,11 +2,16 @@ param(
     [switch]$SkipNpmInstall,
     [switch]$SkipBuild,
     [switch]$SkipLink,
+    [switch]$EnableProfileRouting,
     [switch]$SkipProfile,
     [string]$ProfilePath = $PROFILE
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($EnableProfileRouting -and $SkipProfile) {
+    throw "Use either -EnableProfileRouting or -SkipProfile, not both."
+}
 
 function Test-NodeVersion {
     $versionText = & node -v 2>$null
@@ -98,8 +103,17 @@ finally {
 }
 
 if (-not $SkipProfile) {
-    Add-ProfileIntegration -ProfileFile $ProfilePath -IntegrationFile $integrationPath
-    Write-Host "Reload your profile with: . `$PROFILE"
+    if ($EnableProfileRouting) {
+        Add-ProfileIntegration -ProfileFile $ProfilePath -IntegrationFile $integrationPath
+        Write-Host "Reload your profile with: . `$PROFILE"
+    }
+    else {
+        Write-Host "Profile routing not enabled (default). Native commands remain unchanged."
+        Write-Host "To enable routing later: pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrink.ps1 -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting"
+    }
+}
+else {
+    Write-Host "Profile routing skipped via -SkipProfile. Native commands remain unchanged."
 }
 
 Write-Host "Install complete. Try: shrink help"
