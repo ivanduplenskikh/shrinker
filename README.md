@@ -23,7 +23,7 @@ Requires Node.js 22.13 or newer. This is the first Node 22 release where the bui
 Quick one-liner:
 
 ```powershell
-irm https://raw.githubusercontent.com/<owner>/<repo>/<ref>/integrations/install.ps1 | iex
+irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1 | iex
 ```
 
 ### Remote bootstrap install (raw GitHub)
@@ -35,8 +35,8 @@ Install with download-then-run mode:
 
 ```powershell
 $tmp = Join-Path $env:TEMP "install-shrink.ps1"
-Invoke-WebRequest "https://raw.githubusercontent.com/<owner>/<repo>/<ref>/integrations/install.ps1" -OutFile $tmp
-pwsh -ExecutionPolicy Bypass -File $tmp -Owner <owner> -Repo <repo> -Ref <ref>
+Invoke-WebRequest "https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1" -OutFile $tmp
+pwsh -ExecutionPolicy Bypass -File $tmp
 ```
 
 This bootstrap script downloads the repository archive, runs `integrations/install-shrink.ps1`, and installs Copilot/Claude rules by default.
@@ -66,15 +66,15 @@ The rules tell agents to prefer `shrink <command>` for high-volume commands whil
 Quick one-liner:
 
 ```powershell
-irm https://raw.githubusercontent.com/<owner>/<repo>/<ref>/integrations/uninstall.ps1 | iex
+irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/uninstall.ps1 | iex
 ```
 
 Uninstall with download-then-run mode:
 
 ```powershell
 $tmp = Join-Path $env:TEMP "uninstall-shrink.ps1"
-Invoke-WebRequest "https://raw.githubusercontent.com/<owner>/<repo>/<ref>/integrations/uninstall.ps1" -OutFile $tmp
-pwsh -ExecutionPolicy Bypass -File $tmp -Owner <owner> -Repo <repo> -Ref <ref>
+Invoke-WebRequest "https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/uninstall.ps1" -OutFile $tmp
+pwsh -ExecutionPolicy Bypass -File $tmp
 ```
 
 ### Local repo install/uninstall (contributors)
@@ -282,7 +282,7 @@ A GitHub Actions workflow publishes this CLI to GitHub Packages:
 - Pipeline steps:
     - `npm ci`
     - `npm test`
-    - set package name to `@<owner>/shrinker` in CI
+    - set package name to `@ivanduplenskikh/shrinker` in CI
     - `npm publish` to `https://npm.pkg.github.com` with `GITHUB_TOKEN`
 
 How to publish:
@@ -292,7 +292,7 @@ How to publish:
     - `git tag v0.2.0`
     - `git push origin v0.2.0`
 3. After the workflow succeeds, install from GitHub Packages:
-    - `npm install -g @<owner>/shrinker --registry=https://npm.pkg.github.com`
+    - `npm install -g @ivanduplenskikh/shrinker --registry=https://npm.pkg.github.com`
 
 ## Suggested roadmap
 

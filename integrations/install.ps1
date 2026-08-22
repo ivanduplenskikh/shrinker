@@ -1,7 +1,7 @@
 param(
     [string]$ArchiveUrl,
-    [string]$Owner,
-    [string]$Repo,
+    [string]$Owner = "ivanduplenskikh",
+    [string]$Repo = "shrinker",
     [string]$Ref = "main",
     [ValidateSet("branch", "tag")]
     [string]$RefType = "branch",
