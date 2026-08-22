@@ -18,6 +18,20 @@ this POC proves that a few conservative, deterministic filters can save useful c
 
 Requires Node.js 22.13 or newer. This is the first Node 22 release where the built-in SQLite module no longer requires an experimental flag.
 
+### One-command install (Windows PowerShell)
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrink.ps1
+```
+
+This installs dependencies, builds, links `shrink`, and adds profile routing from `integrations\shrink-profile.ps1`.
+
+To uninstall:
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrink.ps1
+```
+
 ```powershell
 npm install
 npm run build
@@ -86,7 +100,7 @@ kubectl get -> shrink kubectl get
 gh pr list  -> shrink gh pr list
 rg/find/tail/cat/ls/dir -> shrink <command>
 
-git push, git fetch, npm install, and all other commands -> native executable
+git push, git fetch, and all other commands -> native executable
 ```
 
 Edit `$global:ShrinkPowerShellRules` in `integrations\shrink-profile.ps1` to change the allowlist. The router is now option-aware for common global flags, so forms like `git -C <path> log` and `kubectl --context prod get pods` are routed correctly.
