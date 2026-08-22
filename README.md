@@ -199,6 +199,28 @@ npm test
 
 Tests cover information retention, reduction targets, ANSI cleanup, filter selection, command capture, and non-zero exit-code propagation.
 
+## Release to GitHub Packages
+
+A GitHub Actions workflow publishes this CLI to GitHub Packages:
+
+- Workflow file: `.github/workflows/publish-github-packages.yml`
+- Triggers:
+    - Tag push matching `v*` (for example `v0.2.0`)
+    - Manual run via workflow_dispatch
+- Pipeline steps:
+    - `npm ci`
+    - `npm test`
+    - `npm publish` to `https://npm.pkg.github.com` with `GITHUB_TOKEN`
+
+How to publish:
+
+1. Push your changes to GitHub.
+2. Push a version tag (or run the workflow manually):
+    - `git tag v0.2.0`
+    - `git push origin v0.2.0`
+3. After the workflow succeeds, install from GitHub Packages:
+     - `npm install -g shrinker --registry=https://npm.pkg.github.com`
+
 ## Suggested roadmap
 
 1. Validate the POC with real Copilot/Agency workflows and identify the highest-volume commands.
