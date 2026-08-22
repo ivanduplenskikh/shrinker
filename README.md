@@ -20,19 +20,22 @@ Requires Node.js 22.13 or newer. This is the first Node 22 release where the bui
 
 ### One-command install (Windows PowerShell)
 
-```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrink.ps1
-```
+Quick one-liner:
 
-This installs dependencies, builds, and links `shrink` without modifying native shell commands.
+```powershell
+irm https://raw.githubusercontent.com/<owner>/<repo>/<ref>/integrations/install.ps1 | iex
+```
 
 ### Remote bootstrap install (raw GitHub)
 
-Use this when you want to install directly from a `githubusercontent.com` script:
+Use this when you want to install directly from a `raw.githubusercontent.com` script.
+This is automatically published by GitHub whenever the file is pushed to your branch/tag (no separate publish step required).
+
+Install with download-then-run mode:
 
 ```powershell
 $tmp = Join-Path $env:TEMP "install-shrink.ps1"
-Invoke-WebRequest "https://raw.githubusercontent.com/<owner>/<repo>/<ref>/integrations/install-from-github.ps1" -OutFile $tmp
+Invoke-WebRequest "https://raw.githubusercontent.com/<owner>/<repo>/<ref>/integrations/install.ps1" -OutFile $tmp
 pwsh -ExecutionPolicy Bypass -File $tmp -Owner <owner> -Repo <repo> -Ref <ref>
 ```
 
@@ -58,12 +61,48 @@ This writes managed guidance blocks to:
 
 The rules tell agents to prefer `shrink <command>` for high-volume commands while leaving native commands untouched.
 
+### Remote uninstall (raw GitHub)
+
+Quick one-liner:
+
+```powershell
+irm https://raw.githubusercontent.com/<owner>/<repo>/<ref>/integrations/uninstall.ps1 | iex
+```
+
+Uninstall with download-then-run mode:
+
+```powershell
+$tmp = Join-Path $env:TEMP "uninstall-shrink.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/<owner>/<repo>/<ref>/integrations/uninstall.ps1" -OutFile $tmp
+pwsh -ExecutionPolicy Bypass -File $tmp -Owner <owner> -Repo <repo> -Ref <ref>
+```
+
+### Local repo install/uninstall (contributors)
+
+If you cloned this repository and want to run scripts directly from the local path:
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrink.ps1
+```
+
 To uninstall:
 
 ```powershell
 pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrink.ps1
 pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-agent-rules.ps1
 ```
+
+Uninstall options:
+
+```powershell
+# Remove only profile routing, keep shrink command installed
+pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrink.ps1 -SkipUnlink
+
+# Remove managed Copilot/Claude rules block only
+pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-agent-rules.ps1
+```
+
+If your current terminal had already loaded `shrink-profile.ps1`, restart terminal (or remove loaded wrapper functions) to fully return to native command behavior.
 
 ```powershell
 npm install

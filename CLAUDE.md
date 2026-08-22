@@ -19,6 +19,3 @@ Examples:
 - `shrink rg "pattern" src`
 - `shrink docker logs api --tail 500`
 <!-- <<< shrink agent rules <<< -->
-
-
-
