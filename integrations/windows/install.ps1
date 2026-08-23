@@ -59,13 +59,16 @@ if (-not $Local) {
     Write-InstallStep "📦" "Installing $packageSpec from $Registry..."
     & npm install --silent --global $packageSpec "--registry=$Registry"
     if ($LASTEXITCODE -ne 0) { throw "npm package installation failed." }
+    Write-InstallStep "🔎" "Locating the installed package..."
     $globalRoot = (& npm root --global).Trim()
     if (-not $globalRoot) { throw "Could not determine the global npm package directory." }
-    $entrypoint = Join-Path $globalRoot ($PackageName -replace '/', '\')
-    $entrypoint = Join-Path $entrypoint "integrations\windows\install.ps1"
+    $packageRoot = Join-Path $globalRoot ($PackageName -replace '/', '\')
+    $entrypoint = Join-Path $packageRoot "integrations\windows\install.ps1"
     if (-not (Test-Path $entrypoint)) { throw "Installed package installer not found: $entrypoint" }
+    Write-InstallStep "⚙️" "Configuring the installed package..."
     & pwsh -ExecutionPolicy Bypass -File $entrypoint -Local -SkipNpmInstall:$SkipNpmInstall -SkipBuild:$SkipBuild -SkipLink:$SkipLink -EnableProfileRouting:$EnableProfileRouting -SkipProfile:$SkipProfile -SkipAgentRules:$SkipAgentRules -CopilotOnly:$CopilotOnly -ClaudeOnly:$ClaudeOnly -ProfilePath $ProfilePath
     if ($LASTEXITCODE -ne 0) { throw "Repository installer failed with exit code $LASTEXITCODE" }
+    Write-InstallStep "✅" "Install complete."
     exit 0
 }
 

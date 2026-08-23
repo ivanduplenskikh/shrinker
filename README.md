@@ -87,14 +87,14 @@ Windows PowerShell:
 
 ```powershell
 $pkg = Join-Path ((npm root --global).Trim()) "shrinker-ai"
-pwsh -ExecutionPolicy Bypass -File (Join-Path $pkg "integrations\\windows\\install.ps1") -Uninstall -SkipUnlink
+pwsh -ExecutionPolicy Bypass -File (Join-Path $pkg "integrations\\windows\\uninstall.ps1") -SkipUnlink
 ```
 
 macOS zsh:
 
 ```bash
 pkg="$(npm root --global)/shrinker-ai"
-bash "$pkg/integrations/macos/install.sh" --uninstall --skip-unlink
+bash "$pkg/integrations/macos/uninstall.sh" --skip-unlink
 ```
 
 macOS one-liner uninstall:
