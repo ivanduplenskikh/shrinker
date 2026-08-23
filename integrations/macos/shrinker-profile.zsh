@@ -74,6 +74,54 @@ _shrink_should_route() {
   (( ${allowlist[(Ie)$subcommand]} > 0 ))
 }
 
+_shrink_track_uncovered() {
+  local cmd="$1"
+  local bytes="$2"
+  local status_code="$3"
+  shift 3
+
+  [[ -z "$SHRINKER_TRACK_UNCOVERED" || "$SHRINKER_TRACK_UNCOVERED" == "0" ]] && return 0
+  command -v shrinker >/dev/null 2>&1 || return 0
+
+  local subcommand
+  subcommand="$(_shrink_get_subcommand "$cmd" "$@")"
+
+  local -a track_args
+  track_args=(track --executable "$cmd" --bytes "$bytes" --exit-code "$status_code")
+  [[ -n "$subcommand" ]] && track_args+=(--subcommand "$subcommand")
+
+  (command shrinker "${track_args[@]}" >/dev/null 2>&1 &)
+}
+
+_shrink_run_native_tracked() {
+  local cmd="$1"
+  shift
+
+  if [[ -z "$SHRINKER_TRACK_UNCOVERED" || "$SHRINKER_TRACK_UNCOVERED" == "0" ]]; then
+    command "$cmd" "$@"
+    return $?
+  fi
+
+  # Only measure output volume when stdout is redirected (the agent case). Interactive
+  # terminals keep the native command untouched so pagers and prompts still work.
+  if [[ -t 1 ]]; then
+    command "$cmd" "$@"
+    local status_code=$?
+    _shrink_track_uncovered "$cmd" 0 "$status_code" "$@"
+    return $status_code
+  fi
+
+  local capture
+  capture="$(mktemp -t shrinker-track)" || { command "$cmd" "$@"; return $?; }
+  command "$cmd" "$@" | tee "$capture"
+  local status_code=${pipestatus[1]}
+  local bytes
+  bytes="$(wc -c < "$capture" | tr -d ' ')"
+  rm -f "$capture"
+  _shrink_track_uncovered "$cmd" "${bytes:-0}" "$status_code" "$@"
+  return $status_code
+}
+
 _shrink_invoke_or_native() {
   local cmd="$1"
   shift
@@ -83,7 +131,7 @@ _shrink_invoke_or_native() {
     return $?
   fi
 
-  command "$cmd" "$@"
+  _shrink_run_native_tracked "$cmd" "$@"
 }
 
 git() { _shrink_invoke_or_native git "$@"; }

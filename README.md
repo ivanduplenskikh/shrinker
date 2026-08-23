@@ -180,6 +180,7 @@ shrinker pipe [options]
 shrinker stats [--json]
 shrinker last [--path]
 shrinker raw <capture-id> [--path]
+shrinker track --executable <name> [--subcommand <name>] [--bytes <number>] [--exit-code <number>]
 shrinker help
 
 --kind <auto|git-status|git-diff|git-log|test|log>
@@ -189,9 +190,10 @@ shrinker help
 --metrics                  print per-run savings and duration
 --no-save                  do not save omitted raw output
 --no-stats                 do not record this run
+--coverage                 list commands shrinker does not cover yet
 ```
 
-`help`, `stats`, `last`, `raw`, `pipe`, and `exec` are reserved shrinker commands. Every other top-level token starts a wrapped command, so `shrinker git log` is equivalent to `shrinker exec git log`. The `--` separator remains optional because npm's PowerShell shim may consume it. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified.
+`help`, `stats`, `last`, `raw`, `track`, `pipe`, and `exec` are reserved shrinker commands. Every other top-level token starts a wrapped command, so `shrinker git log` is equivalent to `shrinker exec git log`. The `--` separator remains optional because npm's PowerShell shim may consume it. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified. `track` is used by the shell integrations to record coverage gaps and prints nothing.
 
 ## Automatic PowerShell routing
 
@@ -249,6 +251,7 @@ node dist\src\cli.js stats --dashboard --restart
 
 The summary shows all-time and last-seven-day savings plus a breakdown by filter. Use `--no-stats` before `--` to opt out for an individual run:
 
+`stats --coverage` lists commands shrinker does not cover yet; see [Coverage gaps](#coverage-gaps).
 `stats --chart` shows daily runs, estimated tokens saved, reduction percentage, and an activity bar for the last 30 days.
 `stats --dashboard` starts the local dashboard server in the background at `http://127.0.0.1:4317` and opens it in your browser, then returns to the terminal. The page reads the latest local stats whenever it is refreshed; use `--port` to choose another port. The generated HTML is also kept at `~/.shrinker/dashboard.html`.
 
@@ -281,6 +284,46 @@ shrinker last --path
 ```
 
 `raw` retrieves the exact capture referenced by a hint; `last` is a convenience for human use. The cache uses atomic publication and best-effort rotation to retain up to 20 recent files. File names contain only the executable name, not command arguments. Wrapped `git log` output never creates a recovery file or hint because the full history can be reproduced by rerunning Git; piped Git-log text still gets a recovery hint when meaningful content is omitted. Use `--no-save` for other output that should not be persisted.
+
+## Coverage gaps
+
+Shrinker only measures what it filters. Coverage tracking answers the opposite question: **which commands does an agent run that shrinker does not cover yet?** It ranks them by the estimated tokens a dedicated filter could have seen, so the top row is the next filter worth writing.
+
+Collection is **opt-in** and off by default:
+
+```bash
+export SHRINKER_TRACK_UNCOVERED=1
+```
+
+```powershell
+$env:SHRINKER_TRACK_UNCOVERED = "1"
+```
+
+Two kinds of gaps are recorded:
+
+- `no-filter` / `low-reduction` — the command ran through shrinker, but no filter matched it, or the matching filter barely reduced the output.
+- `unlisted-subcommand` — the shell integration shadows the executable, but the subcommand is outside the routing allowlist, so the native binary ran instead (`git blame`, `docker inspect`, `npm run build`).
+
+Read the results with:
+
+```powershell
+shrinker stats --coverage
+```
+
+```text
+Ranked by estimated tokens a dedicated filter could see:
+  Command                    Runs        Est. tokens         Avg  Reason                 Source           Last seen
+  -------------------------  ----------  -----------  ----------  ---------------------  ---------------  -------------------
+  docker inspect                 12 runs      148,204      12,350  unlisted-subcommand    shell            2025-05-14 09:22:41
+```
+
+The same data is included in `stats --json` and appears as a "Coverage gaps" panel in the dashboard.
+
+**What is stored:** the executable name and its subcommand only, plus an occurrence count, output size, and exit code — for example `docker inspect`. Command arguments, flag values, paths, and command output are never stored. Tokens that are not bare command names are dropped rather than written, so a misfiring hook cannot leak a path or secret into the database. Everything stays in `~/.shrinker/stats.db` on this machine; nothing is uploaded.
+
+Runs with small outputs (under ~200 estimated tokens) are ignored so the table stays focused on real savings. Adjust the low-reduction threshold with `SHRINKER_LOW_REDUCTION_PERCENT` (default `10`).
+
+Output volume is measured in the shell integration only when stdout is redirected — which is the agent case. Interactive terminal sessions run the native command completely untouched and are recorded with a size of zero, so pagers, colours, and prompts still behave normally.
 
 ## Demo
 

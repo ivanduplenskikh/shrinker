@@ -95,6 +95,63 @@ function Get-ShrinkCommandPath {
     return [string]($candidates | Select-Object -First 1).Source
 }
 
+function Test-ShrinkTrackingEnabled {
+    $value = [string]$env:SHRINKER_TRACK_UNCOVERED
+    if (-not $value) { return $false }
+    return @("1", "true", "yes") -contains $value.Trim().ToLowerInvariant()
+}
+
+function Write-ShrinkUncovered {
+    param(
+        [string]$CommandName,
+        [object[]]$Arguments,
+        [int]$Bytes,
+        [int]$ExitCode
+    )
+
+    if (-not (Test-ShrinkTrackingEnabled)) { return }
+    $shrinkCommand = Get-ShrinkCommandPath
+    if (-not $shrinkCommand) { return }
+
+    $trackArgs = @("track", "--executable", $CommandName, "--bytes", $Bytes, "--exit-code", $ExitCode)
+    $subcommand = Get-ShrinkSubcommand -CommandName $CommandName -Arguments $Arguments
+    if ($subcommand) {
+        $trackArgs += @("--subcommand", $subcommand)
+    }
+
+    try {
+        Start-Process -FilePath $shrinkCommand -ArgumentList $trackArgs -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+    } catch {}
+}
+
+function Invoke-ShrinkNativeTracked {
+    param(
+        [scriptblock]$Invoke,
+        [string]$CommandName,
+        [object[]]$Arguments
+    )
+
+    if (-not (Test-ShrinkTrackingEnabled)) {
+        & $Invoke
+        return
+    }
+
+    # Only measure output volume when stdout is redirected (the agent case). Interactive
+    # consoles stream the native output untouched so paging and colours still work.
+    if (-not [Console]::IsOutputRedirected) {
+        & $Invoke
+        Write-ShrinkUncovered -CommandName $CommandName -Arguments $Arguments -Bytes 0 -ExitCode ([int]$LASTEXITCODE)
+        return
+    }
+
+    $output = & $Invoke | Out-String -Stream
+    $exitCode = [int]$LASTEXITCODE
+    $text = ($output -join [Environment]::NewLine)
+    $bytes = [System.Text.Encoding]::UTF8.GetByteCount($text)
+    $output | ForEach-Object { $_ }
+    Write-ShrinkUncovered -CommandName $CommandName -Arguments $Arguments -Bytes $bytes -ExitCode $exitCode
+}
+
 function Invoke-ShrinkOrNative {
     param(
         [string]$CommandName,
@@ -111,14 +168,14 @@ function Invoke-ShrinkOrNative {
 
     $nativePath = $global:ShrinkNativePaths[$CommandName]
     if ($nativePath) {
-        & $nativePath @Arguments
+        Invoke-ShrinkNativeTracked -CommandName $CommandName -Arguments $Arguments -Invoke { & $nativePath @Arguments }
         return
     }
 
     switch ($CommandName) {
-        "cat" { Microsoft.PowerShell.Management\Get-Content @Arguments; return }
-        "ls" { Microsoft.PowerShell.Management\Get-ChildItem @Arguments; return }
-        "dir" { Microsoft.PowerShell.Management\Get-ChildItem @Arguments; return }
+        "cat" { Invoke-ShrinkNativeTracked -CommandName $CommandName -Arguments $Arguments -Invoke { Microsoft.PowerShell.Management\Get-Content @Arguments }; return }
+        "ls" { Invoke-ShrinkNativeTracked -CommandName $CommandName -Arguments $Arguments -Invoke { Microsoft.PowerShell.Management\Get-ChildItem @Arguments }; return }
+        "dir" { Invoke-ShrinkNativeTracked -CommandName $CommandName -Arguments $Arguments -Invoke { Microsoft.PowerShell.Management\Get-ChildItem @Arguments }; return }
         default { throw "No native fallback found for '$CommandName'." }
     }
 }

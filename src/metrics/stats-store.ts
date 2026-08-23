@@ -4,6 +4,12 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { FilterKind } from "../filters/types.js";
 import type { Measurements } from "./measure.js";
+import {
+  isCoverageTrackingEnabled,
+  sanitizeToken,
+  type UncoveredReason,
+  type UncoveredSource,
+} from "./coverage.js";
 import { writeStatsDashboard } from "./dashboard.js";
 
 export interface RunStatistic {
@@ -33,6 +39,30 @@ export interface StatsSummary {
   byFilter: StatsRow[];
   daily: DailyStatsRow[];
   yearlyDaily: DailyStatsRow[];
+  uncovered: UncoveredRow[];
+  uncoveredTrackingEnabled: boolean;
+}
+
+export interface UncoveredStatistic {
+  source: UncoveredSource;
+  reason: UncoveredReason;
+  executable: string;
+  subcommand?: string;
+  rawBytes?: number;
+  rawEstimatedTokens?: number;
+  exitCode?: number;
+}
+
+export interface UncoveredRow {
+  command: string;
+  executable: string;
+  subcommand?: string;
+  occurrences: number;
+  estimatedTokens: number;
+  averageTokens: number;
+  reasons: string[];
+  sources: string[];
+  lastSeen: string;
 }
 
 export interface DailyStatsRow {
@@ -91,6 +121,19 @@ function openDatabase(databasePath: string): DatabaseSync {
     );
     CREATE INDEX IF NOT EXISTS runs_created_at_idx ON runs(created_at);
     CREATE INDEX IF NOT EXISTS runs_filter_kind_idx ON runs(filter_kind);
+    CREATE TABLE IF NOT EXISTS uncovered_commands (
+      id INTEGER PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      source TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      executable TEXT NOT NULL,
+      subcommand TEXT,
+      raw_bytes INTEGER NOT NULL DEFAULT 0,
+      raw_estimated_tokens INTEGER NOT NULL DEFAULT 0,
+      exit_code INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS uncovered_created_at_idx ON uncovered_commands(created_at);
+    CREATE INDEX IF NOT EXISTS uncovered_command_idx ON uncovered_commands(executable, subcommand);
   `);
   return database;
 }
@@ -127,6 +170,94 @@ export function recordRun(statistic: RunStatistic, databasePath = defaultStatsPa
   try {
     writeStatsDashboard(getStats(databasePath));
   } catch {}
+}
+
+interface UncoveredAggregateRow {
+  executable: string | null;
+  subcommand: string | null;
+  occurrences: number;
+  estimated_tokens: number;
+  reasons: string | null;
+  sources: string | null;
+  last_seen: string | null;
+}
+
+export function recordUncovered(
+  statistic: UncoveredStatistic,
+  databasePath = defaultStatsPath(),
+): void {
+  if (!isCoverageTrackingEnabled()) return;
+
+  const executable = sanitizeToken(statistic.executable);
+  if (!executable) return;
+  const subcommand = sanitizeToken(statistic.subcommand);
+
+  const database = openDatabase(databasePath);
+  try {
+    database
+      .prepare(`
+        INSERT INTO uncovered_commands (
+          source, reason, executable, subcommand, raw_bytes, raw_estimated_tokens, exit_code
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        statistic.source,
+        statistic.reason,
+        executable,
+        subcommand ?? null,
+        Math.max(0, Math.round(statistic.rawBytes ?? 0)),
+        Math.max(0, Math.round(statistic.rawEstimatedTokens ?? 0)),
+        statistic.exitCode ?? null,
+      );
+  } finally {
+    database.close();
+  }
+}
+
+export function getCoverageStats(databasePath = defaultStatsPath()): UncoveredRow[] {
+  const database = openDatabase(databasePath);
+  try {
+    const rows = database
+      .prepare(`
+        SELECT
+          executable,
+          subcommand,
+          COUNT(*) AS occurrences,
+          COALESCE(SUM(raw_estimated_tokens), 0) AS estimated_tokens,
+          GROUP_CONCAT(DISTINCT reason) AS reasons,
+          GROUP_CONCAT(DISTINCT source) AS sources,
+          MAX(created_at) AS last_seen
+        FROM uncovered_commands
+        GROUP BY executable, subcommand
+        ORDER BY estimated_tokens DESC, occurrences DESC, executable ASC
+      `)
+      .all() as unknown as UncoveredAggregateRow[];
+
+    return rows.map((row) => {
+      const executable = row.executable ?? "unknown";
+      const subcommand = row.subcommand ?? undefined;
+      const occurrences = Number(row.occurrences ?? 0);
+      const estimatedTokens = Number(row.estimated_tokens ?? 0);
+      return {
+        command: subcommand ? `${executable} ${subcommand}` : executable,
+        executable,
+        ...(subcommand ? { subcommand } : {}),
+        occurrences,
+        estimatedTokens,
+        averageTokens: occurrences === 0 ? 0 : Math.round(estimatedTokens / occurrences),
+        reasons: splitConcatenated(row.reasons),
+        sources: splitConcatenated(row.sources),
+        lastSeen: row.last_seen ?? "unknown",
+      };
+    });
+  } finally {
+    database.close();
+  }
+}
+
+function splitConcatenated(value: string | null): string[] {
+  if (!value) return [];
+  return value.split(",").filter(Boolean).sort();
 }
 
 function toStatsRow(row: AggregateRow, filterKind = "all"): StatsRow {
@@ -201,6 +332,8 @@ export function getStats(databasePath = defaultStatsPath()): StatsSummary {
       byFilter: byFilter.map((row) => toStatsRow(row, row.filter_kind ?? "unknown")),
       daily: daily.map(toDailyStatsRow),
       yearlyDaily: yearlyDaily.map(toDailyStatsRow),
+      uncovered: getCoverageStats(databasePath),
+      uncoveredTrackingEnabled: isCoverageTrackingEnabled(),
     };
   } finally {
     database.close();
@@ -249,6 +382,37 @@ export function formatStats(summary: StatsSummary): string {
         `  ${row.filterKind.padEnd(15)}  ${formatRuns(row.runs).padStart(10)}  ${formatInteger(row.rawEstimatedTokens).padStart(10)}  ${formatInteger(row.outputEstimatedTokens).padStart(10)}  ${formatInteger(row.estimatedTokensSaved).padStart(10)}  ${`-${formatPercent(row.reductionPercent)}`.padStart(7)}  ${formatPercent(share).padStart(6)}  ${makeBar(row.estimatedTokensSaved, maxSaved)}`,
       );
     }
+  }
+
+  lines.push("", "Storage", `  Database: ${summary.databasePath}`);
+  return lines.join("\n");
+}
+
+export function formatCoverage(summary: StatsSummary): string {
+  const lines = [
+    "Shrinker Coverage Gaps",
+    "======================",
+    summary.uncoveredTrackingEnabled
+      ? "Tracking: enabled (SHRINKER_TRACK_UNCOVERED)"
+      : "Tracking: disabled - run `export SHRINKER_TRACK_UNCOVERED=1` to start collecting.",
+  ];
+
+  if (summary.uncovered.length === 0) {
+    lines.push("", "No uncovered commands recorded yet.");
+    lines.push("", "Storage", `  Database: ${summary.databasePath}`);
+    return lines.join("\n");
+  }
+
+  lines.push(
+    "",
+    "Ranked by estimated tokens a dedicated filter could see:",
+    "  Command                    Runs        Est. tokens         Avg  Reason                 Source           Last seen",
+    "  -------------------------  ----------  -----------  ----------  ---------------------  ---------------  -------------------",
+  );
+  for (const row of summary.uncovered) {
+    lines.push(
+      `  ${row.command.padEnd(25)}  ${formatRuns(row.occurrences).padStart(10)}  ${formatInteger(row.estimatedTokens).padStart(11)}  ${formatInteger(row.averageTokens).padStart(10)}  ${(row.reasons.join(",") || "-").padEnd(21)}  ${(row.sources.join(",") || "-").padEnd(15)}  ${row.lastSeen}`,
+    );
   }
 
   lines.push("", "Storage", `  Database: ${summary.databasePath}`);

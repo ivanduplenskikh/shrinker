@@ -116,6 +116,14 @@ export function writeStatsDashboard(summary: StatsSummary, outputPath = defaultD
   const filters = summary.byFilter.length === 0
     ? `<p class="muted">No filter data yet.</p>`
     : summary.byFilter.map((row) => `<div class="filter-row"><span>${escapeHtml(row.filterKind)}</span><strong>${formatInteger(row.estimatedTokensSaved)}</strong><small>${row.reductionPercent}% reduction</small></div>`).join("");
+  const uncovered = summary.uncovered.length === 0
+    ? `<p class="muted">${summary.uncoveredTrackingEnabled
+        ? "No uncovered commands recorded yet."
+        : "Tracking is off. Set SHRINKER_TRACK_UNCOVERED=1 to start collecting."}</p>`
+    : summary.uncovered
+        .slice(0, 12)
+        .map((row) => `<div class="filter-row"><span>${escapeHtml(row.command)}</span><strong>${formatInteger(row.estimatedTokens)}</strong><small>${formatInteger(row.occurrences)} ${row.occurrences === 1 ? "run" : "runs"}</small></div>`)
+        .join("");
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -168,7 +176,7 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
 .trend { fill: none; stroke: var(--blue); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .point { fill: var(--surface); stroke: var(--blue); stroke-width: 3; }
 .point:hover { fill: var(--blue); r: 6; }
-.lower { margin-top: 20px; }
+.lower { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 20px; }
 .filter-row { display: grid; grid-template-columns: 1fr auto auto; gap: 18px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .filter-row:last-child { border-bottom: 0; }
 .filter-row small { color: var(--green); }
@@ -200,6 +208,7 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
   <section class="panel chart"><h2>Tokens saved over time</h2><p>Estimated savings from recorded command runs. Cost uses <span id="chart-cost-rate">${formatUsd(inputCostPerMillionTokens)}</span> per million input tokens.</p>${makeChart(summary)}</section>
   <section class="lower">
     <section class="panel"><h2>By filter</h2><p>Where the savings come from.</p>${filters}</section>
+    <section class="panel"><h2>Coverage gaps</h2><p>Uncovered commands ranked by estimated tokens a dedicated filter could see.</p>${uncovered}</section>
   </section>
 </main>
 <script>

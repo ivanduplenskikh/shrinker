@@ -33,33 +33,43 @@ const FILTERS: Record<Exclude<FilterKind, "auto">, OutputFilter> = {
   log: filterGenericLog,
 };
 
+export interface FilterDetection {
+  kind: Exclude<FilterKind, "auto">;
+  matched: boolean;
+}
+
 export function detectFilter(command: string[]): Exclude<FilterKind, "auto"> {
+  return detectFilterMatch(command).kind;
+}
+
+export function detectFilterMatch(command: readonly string[]): FilterDetection {
   const executable = detectExecutable(command);
+  const matched = (kind: Exclude<FilterKind, "auto">): FilterDetection => ({ kind, matched: true });
 
   const gitSubcommand = detectGitSubcommand(command);
-  if (gitSubcommand === "status") return "git-status";
-  if (gitSubcommand === "log") return "git-log";
-  if (gitSubcommand === "reflog") return "git-log";
-  if (gitSubcommand === "diff" || gitSubcommand === "show") return "git-diff";
-  if (gitSubcommand) return "git-list";
+  if (gitSubcommand === "status") return matched("git-status");
+  if (gitSubcommand === "log") return matched("git-log");
+  if (gitSubcommand === "reflog") return matched("git-log");
+  if (gitSubcommand === "diff" || gitSubcommand === "show") return matched("git-diff");
+  if (gitSubcommand) return matched("git-list");
 
   if (executable === "npm" || executable === "pnpm" || executable === "yarn") {
-    if (isTestRunnerCommand(command)) return "test";
-    return "npm";
+    if (isTestRunnerCommand(command)) return matched("test");
+    return matched("npm");
   }
 
-  if (executable === "tail") return "tail";
-  if (executable === "find") return "find";
-  if (executable === "rg" || executable === "ripgrep") return "rg";
-  if (executable === "docker") return "docker";
-  if (executable === "kubectl") return "kubectl";
-  if (executable === "cat") return "cat";
-  if (executable === "gh") return "gh";
+  if (executable === "tail") return matched("tail");
+  if (executable === "find") return matched("find");
+  if (executable === "rg" || executable === "ripgrep") return matched("rg");
+  if (executable === "docker") return matched("docker");
+  if (executable === "kubectl") return matched("kubectl");
+  if (executable === "cat") return matched("cat");
+  if (executable === "gh") return matched("gh");
 
   if (isTestRunnerCommand(command)) {
-    return "test";
+    return matched("test");
   }
-  return "log";
+  return { kind: "log", matched: false };
 }
 
 function detectExecutable(command: readonly string[]): string | undefined {
@@ -100,8 +110,11 @@ export function applyFilter(
   requestedKind: FilterKind,
   command: string[],
   options: FilterOptions,
-): FilterResult {
-  const kind = requestedKind === "auto" ? detectFilter(command) : requestedKind;
+): FilterResult & { matched: boolean } {
+  const detection = requestedKind === "auto"
+    ? detectFilterMatch(command)
+    : { kind: requestedKind, matched: true };
+  const kind = detection.kind;
   const result = FILTERS[kind](input, { ...options, command });
   const cleanedRaw = cleanText(input);
   const comparison = measure(cleanedRaw, result.output);
@@ -113,10 +126,11 @@ export function applyFilter(
     return {
       output: cleanedRaw,
       kind,
+      matched: detection.matched,
       omitted: false,
       notes: [...result.notes, "compact output was not smaller; returned cleaned raw output"],
     };
   }
 
-  return result;
+  return { ...result, matched: detection.matched };
 }

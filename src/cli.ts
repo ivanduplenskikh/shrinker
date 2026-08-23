@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import process from "node:process";
 import path from "node:path";
+import process from "node:process";
+
 import { applyFilter } from "./filters/select-filter.js";
 import type { FilterKind } from "./filters/types.js";
 import { runCommand } from "./execution/run-command.js";
@@ -8,10 +9,19 @@ import { getLatestRawOutput, getRawOutput, saveRawOutput } from "./execution/raw
 import { cleanText } from "./formatting/ansi.js";
 import { formatMeasurements, measure } from "./metrics/measure.js";
 import { serveStatsDashboard, startStatsDashboard } from "./metrics/dashboard.js";
-import { defaultStatsPath, formatStats, formatStatsChart, getStats, recordRun } from "./metrics/stats-store.js";
+import { classifyWrappedRun, commandSignature, isCoverageTrackingEnabled } from "./metrics/coverage.js";
+import {
+  defaultStatsPath,
+  formatCoverage,
+  formatStats,
+  formatStatsChart,
+  getStats,
+  recordRun,
+  recordUncovered,
+} from "./metrics/stats-store.js";
 
 interface CliOptions {
-  mode: "exec" | "pipe" | "stats" | "last" | "raw-output" | "help";
+  mode: "exec" | "pipe" | "stats" | "last" | "raw-output" | "track" | "help";
   kind: FilterKind;
   raw: boolean;
   save: boolean;
@@ -19,12 +29,17 @@ interface CliOptions {
   showMetrics: boolean;
   json: boolean;
   chart: boolean;
+  coverage: boolean;
   dashboard: boolean;
   dashboardServer: boolean;
   dashboardRestart: boolean;
   dashboardPort: number;
   showPath: boolean;
   captureId?: string;
+  trackExecutable?: string;
+  trackSubcommand?: string;
+  trackBytes?: number;
+  trackExitCode?: number;
   maxLines: number;
   perFileLines: number;
   command: string[];
@@ -35,9 +50,10 @@ function usage(): string {
   shrinker <command> [args...]
   shrinker exec [options] [--] <command> [args...]
   shrinker pipe [options]
-  shrinker stats [--json] [--chart] [--dashboard] [--restart] [--port <number>]
+  shrinker stats [--json] [--chart] [--coverage] [--dashboard] [--restart] [--port <number>]
   shrinker last [--path]
   shrinker raw <capture-id> [--path]
+  shrinker track --executable <name> [--subcommand <name>] [--bytes <number>] [--exit-code <number>]
   shrinker help
 
 Options:
@@ -48,6 +64,7 @@ Options:
   --metrics                  print per-run savings and duration
   --no-save                  do not save omitted raw output
   --no-stats                 do not record this run
+  --coverage                 list commands shrinker does not cover yet
   --dashboard                serve and open the local dashboard at http://127.0.0.1:4317
   --restart                  restart the local dashboard server
   --port <number>            dashboard server port (default: 4317)
@@ -58,6 +75,22 @@ function parsePositiveInteger(value: string | undefined, option: string): number
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new Error(`${option} requires a positive integer`);
+  }
+  return parsed;
+}
+
+function parseNonNegativeInteger(value: string | undefined, option: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${option} requires a non-negative integer`);
+  }
+  return parsed;
+}
+
+function parseInteger(value: string | undefined, option: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${option} requires an integer`);
   }
   return parsed;
 }
@@ -73,10 +106,11 @@ function parseArgs(args: string[]): CliOptions {
     first === "pipe" ||
     first === "stats" ||
     first === "last" ||
+    first === "track" ||
     first === "raw"
   ) {
     const reserved = args.shift();
-    mode = reserved === "raw" ? "raw-output" : reserved as "exec" | "pipe" | "stats" | "last";
+    mode = reserved === "raw" ? "raw-output" : reserved as "exec" | "pipe" | "stats" | "last" | "track";
   } else {
     mode = "exec";
   }
@@ -88,12 +122,17 @@ function parseArgs(args: string[]): CliOptions {
   let showMetrics = false;
   let json = false;
   let chart = false;
+  let coverage = false;
   let dashboard = false;
   let dashboardServer = false;
   let dashboardRestart = false;
   let dashboardPort = 4317;
   let showPath = false;
   let captureId: string | undefined;
+  let trackExecutable: string | undefined;
+  let trackSubcommand: string | undefined;
+  let trackBytes: number | undefined;
+  let trackExitCode: number | undefined;
   let maxLines = 120;
   let perFileLines = 40;
 
@@ -109,6 +148,11 @@ function parseArgs(args: string[]): CliOptions {
     else if (option === "--no-stats") trackStats = false;
     else if (option === "--json" && mode === "stats") json = true;
     else if (option === "--chart" && mode === "stats") chart = true;
+    else if (option === "--coverage" && mode === "stats") coverage = true;
+    else if (option === "--executable" && mode === "track") trackExecutable = args.shift();
+    else if (option === "--subcommand" && mode === "track") trackSubcommand = args.shift();
+    else if (option === "--bytes" && mode === "track") trackBytes = parseNonNegativeInteger(args.shift(), "--bytes");
+    else if (option === "--exit-code" && mode === "track") trackExitCode = parseInteger(args.shift(), "--exit-code");
     else if (option === "--dashboard" && mode === "stats") dashboard = true;
     else if (option === "--dashboard-server" && mode === "stats") dashboardServer = true;
     else if (option === "--restart" && mode === "stats") dashboardRestart = true;
@@ -161,6 +205,8 @@ function parseArgs(args: string[]): CliOptions {
   if (dashboardRestart && !dashboard) throw new Error("--restart requires stats --dashboard");
   if (mode === "last" && args.length > 0) throw new Error("last does not accept command arguments");
   if (mode === "raw-output" && !captureId) throw new Error("raw requires a capture ID");
+  if (mode === "track" && !trackExecutable) throw new Error("track requires --executable");
+  if (mode === "track" && args.length > 0) throw new Error("track does not accept command arguments");
 
   return {
     mode,
@@ -171,12 +217,17 @@ function parseArgs(args: string[]): CliOptions {
     showMetrics,
     json,
     chart,
+    coverage,
     dashboard,
     dashboardServer,
     dashboardRestart,
     dashboardPort,
     showPath,
     ...(captureId ? { captureId } : {}),
+    ...(trackExecutable ? { trackExecutable } : {}),
+    ...(trackSubcommand ? { trackSubcommand } : {}),
+    ...(trackBytes === undefined ? {} : { trackBytes }),
+    ...(trackExitCode === undefined ? {} : { trackExitCode }),
     maxLines,
     perFileLines,
     command: args,
@@ -238,6 +289,30 @@ async function render(
     } catch (error) {
       process.stderr.write(`[shrinker] could not record stats: ${String(error)}\n`);
     }
+
+    if (options.mode !== "pipe" && isCoverageTrackingEnabled()) {
+      try {
+        const reason = classifyWrappedRun({
+          matched: result.matched,
+          kind: result.kind,
+          measurements,
+        });
+        const signature = commandSignature(options.command);
+        if (reason && signature) {
+          recordUncovered({
+            source: "wrapped",
+            reason,
+            executable: signature.executable,
+            ...(signature.subcommand ? { subcommand: signature.subcommand } : {}),
+            rawBytes: measurements.rawBytes,
+            rawEstimatedTokens: measurements.rawEstimatedTokens,
+            ...(exitCode === undefined ? {} : { exitCode }),
+          });
+        }
+      } catch (error) {
+        process.stderr.write(`[shrinker] could not record coverage: ${String(error)}\n`);
+      }
+    }
   }
 
   const isWrappedGitLog = options.mode === "exec" && result.kind === "git-log";
@@ -277,8 +352,31 @@ async function main(): Promise<void> {
       }
       return;
     }
-    const output = options.json ? JSON.stringify(summary, null, 2) : options.chart ? formatStatsChart(summary) : formatStats(summary);
+    const output = options.json
+      ? JSON.stringify(summary, null, 2)
+      : options.coverage
+        ? formatCoverage(summary)
+        : options.chart
+          ? formatStatsChart(summary)
+          : formatStats(summary);
     process.stdout.write(`${output}\n`);
+    return;
+  }
+
+  if (options.mode === "track") {
+    try {
+      recordUncovered({
+        source: "shell",
+        reason: "unlisted-subcommand",
+        executable: options.trackExecutable ?? "",
+        ...(options.trackSubcommand ? { subcommand: options.trackSubcommand } : {}),
+        ...(options.trackBytes === undefined ? {} : { rawBytes: options.trackBytes }),
+        ...(options.trackBytes === undefined
+          ? {}
+          : { rawEstimatedTokens: Math.ceil(options.trackBytes / 4) }),
+        ...(options.trackExitCode === undefined ? {} : { exitCode: options.trackExitCode }),
+      });
+    } catch {}
     return;
   }
 
