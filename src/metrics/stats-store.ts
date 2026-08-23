@@ -32,6 +32,7 @@ export interface StatsSummary {
   last7Days: StatsRow;
   byFilter: StatsRow[];
   daily: DailyStatsRow[];
+  yearlyDaily: DailyStatsRow[];
 }
 
 export interface DailyStatsRow {
@@ -176,18 +177,30 @@ export function getStats(databasePath = defaultStatsPath()): StatsSummary {
         ORDER BY date ASC
       `)
       .all() as unknown as (AggregateRow & { date: string | null })[];
+    const yearlyDaily = database
+      .prepare(`
+        SELECT substr(created_at, 1, 10) AS date, ${AGGREGATE}
+        FROM runs
+        WHERE created_at >= datetime('now', '-365 days')
+        GROUP BY substr(created_at, 1, 10)
+        ORDER BY date ASC
+      `)
+      .all() as unknown as (AggregateRow & { date: string | null })[];
+
+    const toDailyStatsRow = (row: AggregateRow & { date: string | null }): DailyStatsRow => ({
+      date: row.date ?? "unknown",
+      runs: Number(row.runs ?? 0),
+      estimatedTokensSaved: Number(row.tokens_saved ?? 0),
+      reductionPercent: toStatsRow(row).reductionPercent,
+    });
 
     return {
       databasePath,
       total: toStatsRow(total),
       last7Days: toStatsRow(last7Days),
       byFilter: byFilter.map((row) => toStatsRow(row, row.filter_kind ?? "unknown")),
-      daily: daily.map((row) => ({
-        date: row.date ?? "unknown",
-        runs: Number(row.runs ?? 0),
-        estimatedTokensSaved: Number(row.tokens_saved ?? 0),
-        reductionPercent: toStatsRow(row).reductionPercent,
-      })),
+      daily: daily.map(toDailyStatsRow),
+      yearlyDaily: yearlyDaily.map(toDailyStatsRow),
     };
   } finally {
     database.close();

@@ -47,6 +47,8 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
   assert.equal(summary.last7Days.runs, 2);
   assert.equal(summary.daily.length, 1);
   assert.equal(summary.daily[0]?.estimatedTokensSaved, 100);
+  assert.equal(summary.yearlyDaily.length, 1);
+  assert.equal(summary.yearlyDaily[0]?.estimatedTokensSaved, 100);
   assert.deepEqual(
     summary.byFilter.map((row) => [row.filterKind, row.runs, row.estimatedTokensSaved]),
     [
@@ -66,6 +68,12 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
   assert.equal(generatedPath, dashboardPath);
   const dashboard = await import("node:fs/promises").then(({ readFile }) => readFile(dashboardPath, "utf8"));
   assert.match(dashboard, /Tokens saved over time/);
+  assert.match(dashboard, /Savings activity/);
+  assert.match(dashboard, /heatmap-grid/);
+  assert.match(dashboard, /grid-template-columns: repeat\(53, minmax\(12px, 1fr\)\)/);
+  assert.match(dashboard, /aspect-ratio: 53 \/ 7/);
+  assert.match(dashboard, /Daily estimated token savings over the last 365 days/);
+  assert.match(dashboard, /estimated tokens saved/);
   assert.match(dashboard, /Estimated API cost saved/);
   assert.match(dashboard, /Average saved per run/);
   assert.match(dashboard, /id="chart-cost-rate">\$5\.00<\/span> per million input tokens/);

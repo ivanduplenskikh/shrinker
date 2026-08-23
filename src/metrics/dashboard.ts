@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { getInputCostPerMillionTokens, type StatsSummary } from "./stats-store.js";
+import { getInputCostPerMillionTokens, type DailyStatsRow, type StatsSummary } from "./stats-store.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -24,6 +24,34 @@ function formatUsd(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
   }).format(value);
+}
+
+function utcDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function makeSavingsHeatmap(rows: DailyStatsRow[]): string {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setUTCDate(start.getUTCDate() - 364);
+  const dailySavings = new Map(rows.map((row) => [row.date, row.estimatedTokensSaved]));
+  const values = rows.map((row) => row.estimatedTokensSaved).filter((value) => value > 0);
+  const maxSaved = Math.max(1, ...values);
+  const leadingCells = Array.from({ length: start.getUTCDay() }, () =>
+    `<span class="heatmap-cell heatmap-empty" aria-hidden="true"></span>`,
+  ).join("");
+  const cells = Array.from({ length: 365 }, (_, index) => {
+    const date = new Date(start);
+    date.setUTCDate(start.getUTCDate() + index);
+    const dateKey = utcDateKey(date);
+    const saved = dailySavings.get(dateKey) ?? 0;
+    const level = saved === 0 ? 0 : Math.max(1, Math.min(4, Math.ceil((saved / maxSaved) * 4)));
+    return `<span class="heatmap-cell heatmap-level-${level}" title="${dateKey}: ${formatInteger(saved)} estimated tokens saved" aria-label="${dateKey}: ${formatInteger(saved)} estimated tokens saved"></span>`;
+  }).join("");
+  const totalSaved = rows.reduce((total, row) => total + row.estimatedTokensSaved, 0);
+
+  return `<section class="panel savings-activity"><div class="panel-heading"><div><h2>Savings activity</h2><p>${formatInteger(totalSaved)} estimated tokens saved in the last year.</p></div><div class="heatmap-legend" aria-label="Savings intensity"><span>Less</span><i class="heatmap-level-0"></i><i class="heatmap-level-1"></i><i class="heatmap-level-2"></i><i class="heatmap-level-3"></i><i class="heatmap-level-4"></i><span>More</span></div></div><div class="heatmap-wrap"><div class="heatmap-weekdays" aria-hidden="true"><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span></div><div class="heatmap-grid" role="img" aria-label="Daily estimated token savings over the last 365 days">${leadingCells}${cells}</div></div></section>`;
 }
 
 function makeChart(summary: StatsSummary): string {
@@ -113,6 +141,20 @@ h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.03em; }
 .panel { padding: 22px; }
 .panel h2 { margin: 0 0 4px; font-size: 18px; }
 .panel p { margin: 0 0 14px; color: var(--muted); }
+.panel-heading { display: flex; justify-content: space-between; gap: 20px; align-items: start; }
+.savings-activity { margin-bottom: 20px; }
+.heatmap-wrap { display: flex; gap: 10px; overflow-x: auto; padding: 2px 0 4px; }
+.heatmap-weekdays { display: grid; align-self: stretch; grid-template-rows: repeat(7, 1fr); gap: 2px; padding-top: 1px; color: var(--muted); font-size: 10px; line-height: 12px; }
+.heatmap-grid { display: grid; flex: 1; aspect-ratio: 53 / 7; grid-template-columns: repeat(53, minmax(12px, 1fr)); grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; gap: 2px; min-width: 738px; }
+.heatmap-cell { display: block; width: 100%; height: 100%; border: 1px solid #dce3e8; border-radius: 2px; }
+.heatmap-legend i { display: block; width: 12px; height: 12px; border: 1px solid #dce3e8; border-radius: 2px; }
+.heatmap-empty { visibility: hidden; }
+.heatmap-level-0 { background: #edf1f4; }
+.heatmap-level-1 { background: #b7e4c7; }
+.heatmap-level-2 { background: #71c993; border-color: #63bd85; }
+.heatmap-level-3 { background: #309d62; border-color: #258d54; }
+.heatmap-level-4 { background: #176b41; border-color: #125c36; }
+.heatmap-legend { display: flex; align-items: center; gap: 4px; white-space: nowrap; color: var(--muted); font-size: 11px; }
 .chart { overflow: hidden; }
 svg { display: block; width: 100%; min-width: 620px; height: auto; }
 .chart { overflow-x: auto; }
@@ -127,7 +169,7 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
 .filter-row:last-child { border-bottom: 0; }
 .filter-row small { color: var(--green); }
 .muted { color: var(--muted); }
-@media (max-width: 720px) { main { padding: 28px 16px 40px; } .heading { display: block; } .rate-control { margin: 0 0 20px; } .cards, .lower { grid-template-columns: 1fr; } .card strong { font-size: 24px; } }
+@media (max-width: 720px) { main { padding: 28px 16px 40px; } .heading, .panel-heading { display: block; } .rate-control { margin: 0 0 20px; } .heatmap-legend { margin: 0 0 14px; } .cards, .lower { grid-template-columns: 1fr; } .card strong { font-size: 24px; } }
 </style>
 </head>
 <body>
@@ -149,6 +191,7 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
     <div class="card"><label>Runs this week</label><strong>${formatInteger(summary.last7Days.runs)}</strong></div>
     <div class="card"><label>Average reduction</label><strong>${summary.total.reductionPercent}%</strong></div>
   </section>
+  ${makeSavingsHeatmap(summary.yearlyDaily)}
   <section class="panel chart"><h2>Tokens saved over time</h2><p>Estimated savings from recorded command runs. Cost uses <span id="chart-cost-rate">${formatUsd(inputCostPerMillionTokens)}</span> per million input tokens.</p>${makeChart(summary)}</section>
   <section class="lower">
     <section class="panel"><h2>By filter</h2><p>Where the savings come from.</p>${filters}</section>
