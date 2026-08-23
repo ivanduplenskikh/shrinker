@@ -1,6 +1,6 @@
 param(
-    [string]$PackageName = "@ivanduplenskikh/shrinker",
-    [string]$Registry = "https://npm.pkg.github.com",
+    [string]$PackageName = "shrinker",
+    [string]$Registry = "https://registry.npmjs.org",
     [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
     [switch]$ClaudeOnly

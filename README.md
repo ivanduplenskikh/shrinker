@@ -26,15 +26,15 @@ Quick one-liner:
 irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1 | iex
 ```
 
-### Package install from GitHub Packages
+### Package install from npm
 
-The installer downloads the published package from GitHub Packages, then installs its local integration files.
+The installer downloads the published package from the public npm registry, then installs its local integration files.
 
 ```powershell
 irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1 | iex
 ```
 
-This script installs `@ivanduplenskikh/shrinker` from `https://npm.pkg.github.com` and installs Copilot/Claude rules by default.
+This script installs `shrinker` from `https://registry.npmjs.org` and installs Copilot/Claude rules by default.
 
 To enable automatic PowerShell routing (so `git log` routes through `shrinker`), download the script and pass the option:
 
@@ -265,19 +265,18 @@ npm test
 
 Tests cover information retention, reduction targets, ANSI cleanup, filter selection, command capture, and non-zero exit-code propagation.
 
-## Release to GitHub Packages
+## Release to npm
 
-A GitHub Actions workflow publishes this CLI to GitHub Packages:
+A GitHub Actions workflow publishes this CLI to npm:
 
-- Workflow file: `.github/workflows/publish-github-packages.yml`
+- Workflow file: `.github/workflows/publish-npm.yml`
 - Triggers:
     - Tag push matching `v*` (for example `v0.2.0`)
     - Manual run via workflow_dispatch
 - Pipeline steps:
     - `npm ci`
     - `npm test`
-    - set package name to `@ivanduplenskikh/shrinker` in CI
-    - `npm publish` to `https://npm.pkg.github.com` with `GITHUB_TOKEN`
+    - `npm publish` to `https://registry.npmjs.org`
 
 How to publish:
 
@@ -285,8 +284,8 @@ How to publish:
 2. Push a version tag (or run the workflow manually):
     - `git tag v0.2.0`
     - `git push origin v0.2.0`
-3. After the workflow succeeds, install from GitHub Packages:
-    - `npm install -g @ivanduplenskikh/shrinker --registry=https://npm.pkg.github.com`
+3. After the workflow succeeds, install from npm:
+    - `npm install -g shrinker`
 
 ## Suggested roadmap
 
