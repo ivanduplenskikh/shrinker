@@ -113,16 +113,27 @@ export function writeStatsDashboard(summary: StatsSummary, outputPath = defaultD
   const averageCostSavedUsd = summary.total.runs === 0
     ? 0
     : summary.total.estimatedInputCostSavedUsd / summary.total.runs;
+  const tableHead = (first: string, second: string, third: string): string =>
+    `<div class="filter-row filter-head"><span>${first}</span><strong>${second}</strong><small>${third}</small></div>`;
   const filters = summary.byFilter.length === 0
     ? `<p class="muted">No filter data yet.</p>`
-    : summary.byFilter.map((row) => `<div class="filter-row"><span>${escapeHtml(row.filterKind)}</span><strong>${formatInteger(row.estimatedTokensSaved)}</strong><small>${row.reductionPercent}% reduction</small></div>`).join("");
+    : tableHead("Filter", "Tokens saved", "Reduction") +
+      summary.byFilter.map((row) => `<div class="filter-row"><span>${escapeHtml(row.filterKind)}</span><strong>${formatInteger(row.estimatedTokensSaved)}</strong><small>${row.reductionPercent}% reduction</small></div>`).join("");
+  const commands = summary.byCommand.length === 0
+    ? `<p class="muted">No command data yet.</p>`
+    : tableHead("Command", "Calls", "Tokens saved") +
+      summary.byCommand
+        .slice(0, 12)
+        .map((row) => `<div class="filter-row"><span>${escapeHtml(row.command)}</span><strong>${formatInteger(row.calls)}</strong><small>${formatInteger(row.estimatedTokensSaved)} saved</small></div>`)
+        .join("");
   const uncovered = summary.uncovered.length === 0
     ? `<p class="muted">${summary.uncoveredTrackingEnabled
         ? "No uncovered commands recorded yet."
         : "Tracking is off. Set SHRINKER_TRACK_UNCOVERED=1 to start collecting."}</p>`
-    : summary.uncovered
+    : tableHead("Command", "Est. tokens", "Calls") +
+      summary.uncovered
         .slice(0, 12)
-        .map((row) => `<div class="filter-row"><span>${escapeHtml(row.command)}</span><strong>${formatInteger(row.estimatedTokens)}</strong><small>${formatInteger(row.occurrences)} ${row.occurrences === 1 ? "run" : "runs"}</small></div>`)
+        .map((row) => `<div class="filter-row"><span>${escapeHtml(row.command)}</span><strong>${formatInteger(row.estimatedTokens)}</strong><small>${formatInteger(row.occurrences)} ${row.occurrences === 1 ? "call" : "calls"}</small></div>`)
         .join("");
   const html = `<!doctype html>
 <html lang="en">
@@ -176,10 +187,12 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
 .trend { fill: none; stroke: var(--blue); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .point { fill: var(--surface); stroke: var(--blue); stroke-width: 3; }
 .point:hover { fill: var(--blue); r: 6; }
-.lower { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 20px; }
+.lower { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 20px; }
 .filter-row { display: grid; grid-template-columns: 1fr auto auto; gap: 18px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .filter-row:last-child { border-bottom: 0; }
 .filter-row small { color: var(--green); }
+.filter-head { padding-top: 0; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.filter-head strong, .filter-head small { color: var(--muted); font-size: 11px; font-weight: 700; }
 .muted { color: var(--muted); }
 @media (max-width: 720px) { main { padding: 28px 16px 40px; } .heading, .panel-heading { display: block; } .rate-control { margin: 0 0 20px; } .heatmap-legend { margin: 0 0 14px; } .cards, .lower { grid-template-columns: 1fr; } .card strong { font-size: 24px; } }
 </style>
@@ -208,6 +221,7 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
   <section class="panel chart"><h2>Tokens saved over time</h2><p>Estimated savings from recorded command runs. Cost uses <span id="chart-cost-rate">${formatUsd(inputCostPerMillionTokens)}</span> per million input tokens.</p>${makeChart(summary)}</section>
   <section class="lower">
     <section class="panel"><h2>By filter</h2><p>Where the savings come from.</p>${filters}</section>
+    <section class="panel"><h2>Top commands</h2><p>Wrapped commands ranked by number of calls.</p>${commands}</section>
     <section class="panel"><h2>Coverage gaps</h2><p>Uncovered commands ranked by estimated tokens a dedicated filter could see.</p>${uncovered}</section>
   </section>
 </main>

@@ -87,6 +87,104 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
   assert.match(dashboard, /data:image\/svg\+xml/);
 });
 
+test("runs are counted per command including the subcommand", async (context) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-commands-"));
+  context.after(async () => await rm(directory, { recursive: true, force: true }));
+  const databasePath = path.join(directory, "stats.db");
+
+  const record = (commandName: string, commandSubcommand?: string) =>
+    recordRun(
+      {
+        mode: "exec",
+        filterKind: "git-status",
+        commandName,
+        ...(commandSubcommand ? { commandSubcommand } : {}),
+        measurements: measure("x".repeat(400), "x".repeat(100)),
+        omitted: true,
+      },
+      databasePath,
+    );
+
+  record("git", "status");
+  record("git", "status");
+  record("git", "diff");
+  record("docker");
+
+  const summary = getStats(databasePath);
+  assert.deepEqual(
+    summary.byCommand.map((row) => [row.command, row.calls]),
+    [
+      ["git status", 2],
+      ["docker", 1],
+      ["git diff", 1],
+    ],
+  );
+  assert.match(formatStats(summary), /By Command/);
+  assert.match(formatStats(summary), /git status/);
+
+  const dashboardPath = path.join(directory, "dashboard.html");
+  writeStatsDashboard(summary, dashboardPath);
+  const dashboard = await import("node:fs/promises").then(({ readFile }) => readFile(dashboardPath, "utf8"));
+  assert.match(dashboard, /<h2>Top commands<\/h2>/);
+  assert.match(dashboard, /filter-head/);
+  assert.match(dashboard, /<span>Command<\/span>/);
+  assert.match(dashboard, /<span>git status<\/span>/);
+});
+
+test("databases created before command_subcommand still work", async (context) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-migrate-"));
+  context.after(async () => await rm(directory, { recursive: true, force: true }));
+  const databasePath = path.join(directory, "stats.db");
+
+  const { DatabaseSync } = await import("node:sqlite");
+  const legacy = new DatabaseSync(databasePath);
+  legacy.exec(`
+    CREATE TABLE runs (
+      id INTEGER PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      mode TEXT NOT NULL,
+      filter_kind TEXT NOT NULL,
+      command_name TEXT NOT NULL,
+      raw_bytes INTEGER NOT NULL,
+      output_bytes INTEGER NOT NULL,
+      raw_estimated_tokens INTEGER NOT NULL,
+      output_estimated_tokens INTEGER NOT NULL,
+      estimated_tokens_saved INTEGER NOT NULL,
+      reduction_percent INTEGER NOT NULL,
+      duration_ms INTEGER,
+      omitted INTEGER NOT NULL,
+      exit_code INTEGER
+    );
+    INSERT INTO runs (
+      mode, filter_kind, command_name, raw_bytes, output_bytes, raw_estimated_tokens,
+      output_estimated_tokens, estimated_tokens_saved, reduction_percent, omitted
+    ) VALUES ('exec', 'git-log', 'git', 400, 100, 100, 25, 75, 75, 1);
+  `);
+  legacy.close();
+
+  recordRun(
+    {
+      mode: "exec",
+      filterKind: "git-status",
+      commandName: "git",
+      commandSubcommand: "status",
+      measurements: measure("x".repeat(400), "x".repeat(100)),
+      omitted: true,
+    },
+    databasePath,
+  );
+
+  const summary = getStats(databasePath);
+  assert.equal(summary.total.runs, 2);
+  assert.deepEqual(
+    summary.byCommand.map((row) => [row.command, row.calls]).sort(),
+    [
+      ["git status", 1],
+      ["git", 1],
+    ],
+  );
+});
+
 test("an empty stats database returns zero totals", async (context) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-stats-empty-"));
   context.after(async () => await rm(directory, { recursive: true, force: true }));

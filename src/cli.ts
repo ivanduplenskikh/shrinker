@@ -275,12 +275,14 @@ async function render(
   }
 
   if (options.trackStats) {
+    const signature = options.mode === "pipe" ? undefined : commandSignature(options.command);
     try {
       recordRun({
         mode: options.mode === "pipe" ? "pipe" : "exec",
         filterKind: result.kind,
         commandName:
           options.mode === "pipe" ? "stdin" : path.basename(options.command[0] ?? "unknown"),
+        ...(signature?.subcommand ? { commandSubcommand: signature.subcommand } : {}),
         measurements,
         ...(durationMs === undefined ? {} : { durationMs }),
         omitted: result.omitted,
@@ -297,7 +299,6 @@ async function render(
           kind: result.kind,
           measurements,
         });
-        const signature = commandSignature(options.command);
         if (reason && signature) {
           recordUncovered({
             source: "wrapped",

@@ -16,6 +16,7 @@ export interface RunStatistic {
   mode: "exec" | "pipe";
   filterKind: Exclude<FilterKind, "auto">;
   commandName: string;
+  commandSubcommand?: string;
   measurements: Measurements;
   durationMs?: number;
   omitted: boolean;
@@ -39,8 +40,16 @@ export interface StatsSummary {
   byFilter: StatsRow[];
   daily: DailyStatsRow[];
   yearlyDaily: DailyStatsRow[];
+  byCommand: CommandStatsRow[];
   uncovered: UncoveredRow[];
   uncoveredTrackingEnabled: boolean;
+}
+
+export interface CommandStatsRow {
+  command: string;
+  calls: number;
+  estimatedTokensSaved: number;
+  reductionPercent: number;
 }
 
 export interface UncoveredStatistic {
@@ -109,6 +118,7 @@ function openDatabase(databasePath: string): DatabaseSync {
       mode TEXT NOT NULL,
       filter_kind TEXT NOT NULL,
       command_name TEXT NOT NULL,
+      command_subcommand TEXT,
       raw_bytes INTEGER NOT NULL,
       output_bytes INTEGER NOT NULL,
       raw_estimated_tokens INTEGER NOT NULL,
@@ -135,6 +145,15 @@ function openDatabase(databasePath: string): DatabaseSync {
     CREATE INDEX IF NOT EXISTS uncovered_created_at_idx ON uncovered_commands(created_at);
     CREATE INDEX IF NOT EXISTS uncovered_command_idx ON uncovered_commands(executable, subcommand);
   `);
+
+  // Existing databases predate command_subcommand; CREATE TABLE IF NOT EXISTS cannot add it.
+  const hasSubcommandColumn = (
+    database.prepare(`PRAGMA table_info(runs)`).all() as unknown as { name: string }[]
+  ).some((column) => column.name === "command_subcommand");
+  if (!hasSubcommandColumn) {
+    database.exec(`ALTER TABLE runs ADD COLUMN command_subcommand TEXT`);
+  }
+
   return database;
 }
 
@@ -144,15 +163,16 @@ export function recordRun(statistic: RunStatistic, databasePath = defaultStatsPa
     database
       .prepare(`
         INSERT INTO runs (
-          mode, filter_kind, command_name, raw_bytes, output_bytes,
+          mode, filter_kind, command_name, command_subcommand, raw_bytes, output_bytes,
           raw_estimated_tokens, output_estimated_tokens, estimated_tokens_saved,
           reduction_percent, duration_ms, omitted, exit_code
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         statistic.mode,
         statistic.filterKind,
         statistic.commandName,
+        sanitizeToken(statistic.commandSubcommand) ?? null,
         statistic.measurements.rawBytes,
         statistic.measurements.outputBytes,
         statistic.measurements.rawEstimatedTokens,
@@ -318,6 +338,21 @@ export function getStats(databasePath = defaultStatsPath()): StatsSummary {
       `)
       .all() as unknown as (AggregateRow & { date: string | null })[];
 
+    const byCommand = database
+      .prepare(`
+        SELECT
+          command_name,
+          command_subcommand,
+          ${AGGREGATE}
+        FROM runs
+        GROUP BY command_name, command_subcommand
+        ORDER BY runs DESC, tokens_saved DESC, command_name ASC
+      `)
+      .all() as unknown as (AggregateRow & {
+        command_name: string | null;
+        command_subcommand: string | null;
+      })[];
+
     const toDailyStatsRow = (row: AggregateRow & { date: string | null }): DailyStatsRow => ({
       date: row.date ?? "unknown",
       runs: Number(row.runs ?? 0),
@@ -332,6 +367,17 @@ export function getStats(databasePath = defaultStatsPath()): StatsSummary {
       byFilter: byFilter.map((row) => toStatsRow(row, row.filter_kind ?? "unknown")),
       daily: daily.map(toDailyStatsRow),
       yearlyDaily: yearlyDaily.map(toDailyStatsRow),
+      byCommand: byCommand.map((row) => {
+        const name = row.command_name ?? "unknown";
+        const subcommand = row.command_subcommand ?? undefined;
+        const stats = toStatsRow(row);
+        return {
+          command: subcommand ? `${name} ${subcommand}` : name,
+          calls: stats.runs,
+          estimatedTokensSaved: stats.estimatedTokensSaved,
+          reductionPercent: stats.reductionPercent,
+        };
+      }),
       uncovered: getCoverageStats(databasePath),
       uncoveredTrackingEnabled: isCoverageTrackingEnabled(),
     };
@@ -380,6 +426,16 @@ export function formatStats(summary: StatsSummary): string {
         totalSaved > 0 ? Math.round((row.estimatedTokensSaved / totalSaved) * 100) : 0;
       lines.push(
         `  ${row.filterKind.padEnd(15)}  ${formatRuns(row.runs).padStart(10)}  ${formatInteger(row.rawEstimatedTokens).padStart(10)}  ${formatInteger(row.outputEstimatedTokens).padStart(10)}  ${formatInteger(row.estimatedTokensSaved).padStart(10)}  ${`-${formatPercent(row.reductionPercent)}`.padStart(7)}  ${formatPercent(share).padStart(6)}  ${makeBar(row.estimatedTokensSaved, maxSaved)}`,
+      );
+    }
+  }
+
+  if (summary.byCommand.length > 0) {
+    lines.push("", "By Command", "  Command                    Calls       Saved       Reduce");
+    lines.push("  -------------------------  ----------  ----------  -------");
+    for (const row of summary.byCommand.slice(0, 15)) {
+      lines.push(
+        `  ${row.command.padEnd(25)}  ${formatInteger(row.calls).padStart(10)}  ${formatInteger(row.estimatedTokensSaved).padStart(10)}  ${`-${formatPercent(row.reductionPercent)}`.padStart(7)}`,
       );
     }
   }
