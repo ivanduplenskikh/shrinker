@@ -4,7 +4,7 @@
   "description": "Local deterministic command-output shrinker for coding agents",
   "type": "module",
   "bin": {
-    "shrinker": "./dist/src/cli.js"
+    "shrinker": "dist/src/cli.js"
   },
   "scripts": {
     "start": "tsc -w -p tsconfig.json",
@@ -31,5 +31,9 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ivanduplenskikh/shrinker.git"
+  }
 }
