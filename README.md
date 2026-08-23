@@ -26,32 +26,28 @@ Quick one-liner:
 irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1 | iex
 ```
 
-### Remote bootstrap install (raw GitHub)
+### Package install from GitHub Packages
 
-Use this when you want to install directly from a `raw.githubusercontent.com` script.
-This is automatically published by GitHub whenever the file is pushed to your branch/tag (no separate publish step required).
+The installer downloads the published package from GitHub Packages, then installs its local integration files.
 
-Install with download-then-run mode:
+```powershell
+irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1 | iex
+```
+
+This script installs `@ivanduplenskikh/shrinker` from `https://npm.pkg.github.com` and installs Copilot/Claude rules by default.
+
+To enable automatic PowerShell routing (so `git log` routes through `shrink`), download the script and pass the option:
 
 ```powershell
 $tmp = Join-Path $env:TEMP "install-shrink.ps1"
 Invoke-WebRequest "https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1" -OutFile $tmp
-pwsh -ExecutionPolicy Bypass -File $tmp
+pwsh -ExecutionPolicy Bypass -File $tmp -EnableProfileRouting
 ```
 
-This bootstrap script downloads the repository archive, runs `integrations/install-shrink.ps1`, and installs Copilot/Claude rules by default.
-
-To enable automatic PowerShell routing (so `git log` routes through `shrink`), opt in explicitly:
-
-```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrink.ps1 -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting
-```
-
-If you want a non-invasive setup (do not override original shell commands), install agent rules instead of PowerShell routing:
+For a local checkout, use the complete installer without profile routing:
 
 ```powershell
 pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrink.ps1
-pwsh -ExecutionPolicy Bypass -File .\integrations\install-agent-rules.ps1
 ```
 
 This writes managed guidance blocks to:
@@ -63,20 +59,12 @@ The shared guidance source is `templates/agent-rules.md`; the two files above ar
 
 The rules tell agents to prefer `shrink <command>` for high-volume commands while leaving native commands untouched.
 
-### Remote uninstall (raw GitHub)
+### Remote package uninstall
 
 Quick one-liner:
 
 ```powershell
 irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/uninstall.ps1 | iex
-```
-
-Uninstall with download-then-run mode:
-
-```powershell
-$tmp = Join-Path $env:TEMP "uninstall-shrink.ps1"
-Invoke-WebRequest "https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/uninstall.ps1" -OutFile $tmp
-pwsh -ExecutionPolicy Bypass -File $tmp
 ```
 
 ### Local repo install/uninstall (contributors)
@@ -91,7 +79,6 @@ To uninstall:
 
 ```powershell
 pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrink.ps1
-pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-agent-rules.ps1
 ```
 
 Uninstall options:
@@ -101,7 +88,7 @@ Uninstall options:
 pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrink.ps1 -SkipUnlink
 
 # Remove managed Copilot/Claude rules block only
-pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-agent-rules.ps1
+pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrink.ps1 -SkipUnlink
 ```
 
 If your current terminal had already loaded `shrink-profile.ps1`, restart terminal (or remove loaded wrapper functions) to fully return to native command behavior.

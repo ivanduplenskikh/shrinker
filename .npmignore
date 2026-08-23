@@ -1,0 +1,13 @@
+# Repository-only files
+src/
+tests/
+demo/
+.github/
+.gitignore
+.npmignore
+tsconfig.json
+package-lock.json
+
+# Generated metadata not needed at runtime
+dist/**/*.d.ts
+dist/**/*.js.map

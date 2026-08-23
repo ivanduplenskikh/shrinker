@@ -4,6 +4,9 @@ param(
     [switch]$SkipLink,
     [switch]$EnableProfileRouting,
     [switch]$SkipProfile,
+    [switch]$SkipAgentRules,
+    [switch]$CopilotOnly,
+    [switch]$ClaudeOnly,
     [string]$ProfilePath = $PROFILE
 )
 
@@ -11,6 +14,38 @@ $ErrorActionPreference = "Stop"
 
 if ($EnableProfileRouting -and $SkipProfile) {
     throw "Use either -EnableProfileRouting or -SkipProfile, not both."
+}
+if ($CopilotOnly -and $ClaudeOnly) {
+    throw "Use either -CopilotOnly or -ClaudeOnly, not both."
+}
+
+$blockStart = "<!-- shrinker agent rules start -->"
+$blockEnd = "<!-- shrinker agent rules end -->"
+
+function Set-AgentRules {
+    param(
+        [string]$RepoRoot,
+        [string]$Body
+    )
+
+    $targets = @()
+    if (-not $ClaudeOnly) { $targets += (Join-Path $RepoRoot ".copilot-instructions.md") }
+    if (-not $CopilotOnly) { $targets += (Join-Path $RepoRoot "CLAUDE.md") }
+
+    foreach ($target in $targets) {
+        $content = if (Test-Path $target) { Get-Content -Path $target -Raw } else { "" }
+        $newBlock = "$blockStart`n$Body`n$blockEnd"
+        if ($content -and $content.Contains($blockStart) -and $content.Contains($blockEnd)) {
+            $pattern = [regex]::Escape($blockStart) + ".*?" + [regex]::Escape($blockEnd)
+            $content = [regex]::Replace($content, $pattern, $newBlock, [System.Text.RegularExpressions.RegexOptions]::Singleline)
+            Set-Content -Path $target -Value $content
+        } elseif ($content) {
+            Add-Content -Path $target -Value "`n$newBlock`n"
+        } else {
+            Set-Content -Path $target -Value "$newBlock`n"
+        }
+        Write-Host "Installed managed rules in: $target"
+    }
 }
 
 function Test-NodeVersion {
@@ -65,8 +100,16 @@ $endMarker
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$templatePath = Join-Path $scriptDir "..\templates\agent-rules.md"
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 $integrationPath = (Resolve-Path (Join-Path $scriptDir "shrink-profile.ps1")).Path
+
+if (-not $SkipAgentRules) {
+    if (-not (Test-Path $templatePath)) {
+        throw "Agent rules template not found: $templatePath"
+    }
+    $rulesBody = Get-Content -Path $templatePath -Raw
+}
 
 Write-Host "Installing shrink from: $repoRoot"
 $nodeVersion = Test-NodeVersion
@@ -114,6 +157,10 @@ if (-not $SkipProfile) {
 }
 else {
     Write-Host "Profile routing skipped via -SkipProfile. Native commands remain unchanged."
+}
+
+if (-not $SkipAgentRules) {
+    Set-AgentRules -RepoRoot (Get-Location).Path -Body $rulesBody
 }
 
 Write-Host "Install complete. Try: shrink help"
