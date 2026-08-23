@@ -42,6 +42,7 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
   assert.equal(summary.total.rawEstimatedTokens, 150);
   assert.equal(summary.total.outputEstimatedTokens, 50);
   assert.equal(summary.total.estimatedTokensSaved, 100);
+  assert.equal(summary.total.estimatedInputCostSavedUsd, 0.0005);
   assert.equal(summary.total.reductionPercent, 67);
   assert.equal(summary.last7Days.runs, 2);
   assert.equal(summary.daily.length, 1);
@@ -65,6 +66,12 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
   assert.equal(generatedPath, dashboardPath);
   const dashboard = await import("node:fs/promises").then(({ readFile }) => readFile(dashboardPath, "utf8"));
   assert.match(dashboard, /Tokens saved over time/);
+  assert.match(dashboard, /Estimated API cost saved/);
+  assert.match(dashboard, /Average saved per run/);
+  assert.match(dashboard, /id="chart-cost-rate">\$5\.00<\/span> per million input tokens/);
+  assert.match(dashboard, /id="input-cost-rate"/);
+  assert.match(dashboard, /storedRateValue === null \? Number\.NaN : Number\(storedRateValue\)/);
+  assert.match(dashboard, /localStorage\.setItem\(storageKey, String\(rate\)\)/);
   assert.match(dashboard, /git-log/);
   assert.match(dashboard, /rel="icon"/);
   assert.match(dashboard, /data:image\/svg\+xml/);
@@ -77,6 +84,7 @@ test("an empty stats database returns zero totals", async (context) => {
 
   assert.equal(summary.total.runs, 0);
   assert.equal(summary.total.estimatedTokensSaved, 0);
+  assert.equal(summary.total.estimatedInputCostSavedUsd, 0);
   assert.equal(summary.total.reductionPercent, 0);
   assert.deepEqual(summary.byFilter, []);
   assert.deepEqual(summary.daily, []);

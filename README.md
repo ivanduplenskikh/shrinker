@@ -251,6 +251,13 @@ The summary shows all-time and last-seven-day savings plus a breakdown by filter
 `stats --chart` shows daily runs, estimated tokens saved, reduction percentage, and an activity bar for the last 30 days.
 `stats --dashboard` starts the local dashboard server in the background at `http://127.0.0.1:4317` and opens it in your browser, then returns to the terminal. The page reads the latest local stats whenever it is refreshed; use `--port` to choose another port. The generated HTML is also kept at `~/.shrinker/dashboard.html`.
 
+The dashboard estimates input API cost saved from the recorded token savings. Set the input price directly in the dashboard; it is retained in that browser. It defaults to `$5.00` per million input tokens, or `SHRINKER_INPUT_COST_PER_MILLION_TOKENS` when set before starting the dashboard:
+
+```powershell
+$env:SHRINKER_INPUT_COST_PER_MILLION_TOKENS = "2.50"
+shrinker stats --dashboard
+```
+
 ```powershell
 node dist\src\cli.js exec --no-stats -- git log -n 10
 ```

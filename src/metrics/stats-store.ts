@@ -22,6 +22,7 @@ export interface StatsRow {
   rawEstimatedTokens: number;
   outputEstimatedTokens: number;
   estimatedTokensSaved: number;
+  estimatedInputCostSavedUsd: number;
   reductionPercent: number;
 }
 
@@ -46,6 +47,19 @@ interface AggregateRow {
   raw_tokens: number;
   output_tokens: number;
   tokens_saved: number;
+}
+
+const DEFAULT_INPUT_COST_PER_MILLION_TOKENS = 5;
+
+function inputCostPerMillionTokens(): number {
+  const configured = Number(process.env.SHRINKER_INPUT_COST_PER_MILLION_TOKENS);
+  return Number.isFinite(configured) && configured >= 0
+    ? configured
+    : DEFAULT_INPUT_COST_PER_MILLION_TOKENS;
+}
+
+export function getInputCostPerMillionTokens(): number {
+  return inputCostPerMillionTokens();
 }
 
 export function defaultStatsPath(): string {
@@ -117,12 +131,14 @@ export function recordRun(statistic: RunStatistic, databasePath = defaultStatsPa
 function toStatsRow(row: AggregateRow, filterKind = "all"): StatsRow {
   const raw = Number(row.raw_tokens ?? 0);
   const output = Number(row.output_tokens ?? 0);
+  const estimatedTokensSaved = Number(row.tokens_saved ?? 0);
   return {
     filterKind,
     runs: Number(row.runs ?? 0),
     rawEstimatedTokens: raw,
     outputEstimatedTokens: output,
-    estimatedTokensSaved: Number(row.tokens_saved ?? 0),
+    estimatedTokensSaved,
+    estimatedInputCostSavedUsd: (estimatedTokensSaved / 1_000_000) * inputCostPerMillionTokens(),
     reductionPercent: raw === 0 ? 0 : Math.max(0, Math.round((1 - output / raw) * 100)),
   };
 }

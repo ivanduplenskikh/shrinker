@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import path from "node:path";
-import type { StatsSummary } from "./stats-store.js";
+import { getInputCostPerMillionTokens, type StatsSummary } from "./stats-store.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -15,6 +15,15 @@ function escapeHtml(value: string): string {
 
 function formatInteger(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatUsd(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  }).format(value);
 }
 
 function makeChart(summary: StatsSummary): string {
@@ -69,6 +78,10 @@ export function defaultDashboardPath(databasePath: string): string {
 }
 
 export function writeStatsDashboard(summary: StatsSummary, outputPath = defaultDashboardPath(summary.databasePath)): string {
+  const inputCostPerMillionTokens = getInputCostPerMillionTokens();
+  const averageCostSavedUsd = summary.total.runs === 0
+    ? 0
+    : summary.total.estimatedInputCostSavedUsd / summary.total.runs;
   const filters = summary.byFilter.length === 0
     ? `<p class="muted">No filter data yet.</p>`
     : summary.byFilter.map((row) => `<div class="filter-row"><span>${escapeHtml(row.filterKind)}</span><strong>${formatInteger(row.estimatedTokensSaved)}</strong><small>${row.reductionPercent}% reduction</small></div>`).join("");
@@ -84,9 +97,14 @@ export function writeStatsDashboard(summary: StatsSummary, outputPath = defaultD
 * { box-sizing: border-box; }
 body { margin: 0; color: var(--ink); background: var(--background); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
 main { max-width: 1180px; margin: 0 auto; padding: 42px 28px 56px; }
+.heading { display: flex; justify-content: space-between; gap: 24px; align-items: start; }
 .eyebrow { margin: 0 0 8px; color: var(--blue); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.03em; }
 .subtitle { margin: 8px 0 30px; color: var(--muted); }
+.rate-control { display: grid; gap: 4px; min-width: 218px; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.rate-field { display: flex; align-items: center; gap: 6px; color: var(--ink); font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.rate-field input { width: 80px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); background: var(--surface); font: inherit; }
+.rate-field input:focus { outline: 2px solid var(--blue); outline-offset: 1px; border-color: var(--blue); }
 .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
 .card, .panel { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px #26394d0d; }
 .card { padding: 18px 20px; }
@@ -109,25 +127,70 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
 .filter-row:last-child { border-bottom: 0; }
 .filter-row small { color: var(--green); }
 .muted { color: var(--muted); }
-@media (max-width: 720px) { main { padding: 28px 16px 40px; } .cards, .lower { grid-template-columns: 1fr; } .card strong { font-size: 24px; } }
+@media (max-width: 720px) { main { padding: 28px 16px 40px; } .heading { display: block; } .rate-control { margin: 0 0 20px; } .cards, .lower { grid-template-columns: 1fr; } .card strong { font-size: 24px; } }
 </style>
 </head>
 <body>
-<main>
-  <p class="eyebrow">Local activity</p>
-  <h1>Shrinker stats</h1>
-  <p class="subtitle">Token reduction over the last 30 days</p>
+<main data-saved-tokens="${summary.total.estimatedTokensSaved}" data-runs="${summary.total.runs}" data-default-input-cost="${inputCostPerMillionTokens}">
+  <header class="heading">
+    <div>
+      <p class="eyebrow">Local activity</p>
+      <h1>Shrinker stats</h1>
+      <p class="subtitle">Token reduction over the last 30 days</p>
+    </div>
+    <label class="rate-control" for="input-cost-rate">Input price
+      <span class="rate-field"><span>$</span><input id="input-cost-rate" type="number" min="0" step="0.01" inputmode="decimal" aria-describedby="input-cost-unit"><span id="input-cost-unit">/ 1M tokens</span></span>
+    </label>
+  </header>
   <section class="cards">
     <div class="card"><label>All-time saved</label><strong>${formatInteger(summary.total.estimatedTokensSaved)}</strong></div>
+    <div class="card"><label>Estimated API cost saved</label><strong id="total-cost-saved">${formatUsd(summary.total.estimatedInputCostSavedUsd)}</strong></div>
+    <div class="card"><label>Average saved per run</label><strong id="average-cost-saved">${formatUsd(averageCostSavedUsd)}</strong></div>
     <div class="card"><label>Runs this week</label><strong>${formatInteger(summary.last7Days.runs)}</strong></div>
     <div class="card"><label>Average reduction</label><strong>${summary.total.reductionPercent}%</strong></div>
   </section>
-  <section class="panel chart"><h2>Tokens saved over time</h2><p>Estimated savings from recorded command runs.</p>${makeChart(summary)}</section>
+  <section class="panel chart"><h2>Tokens saved over time</h2><p>Estimated savings from recorded command runs. Cost uses <span id="chart-cost-rate">${formatUsd(inputCostPerMillionTokens)}</span> per million input tokens.</p>${makeChart(summary)}</section>
   <section class="lower">
     <section class="panel"><h2>By filter</h2><p>Where the savings come from.</p>${filters}</section>
     <section class="panel"><h2>Storage</h2><p>Stats stay on this machine.</p><p class="muted">${escapeHtml(summary.databasePath)}</p></section>
   </section>
 </main>
+<script>
+(() => {
+  const storageKey = "shrinker.inputCostPerMillionTokens";
+  const dashboard = document.querySelector("main[data-saved-tokens]");
+  const rateInput = document.querySelector("#input-cost-rate");
+  const totalCost = document.querySelector("#total-cost-saved");
+  const averageCost = document.querySelector("#average-cost-saved");
+  const chartCostRate = document.querySelector("#chart-cost-rate");
+  if (!dashboard || !rateInput || !totalCost || !averageCost || !chartCostRate) return;
+
+  const savedTokens = Number(dashboard.dataset.savedTokens);
+  const runs = Number(dashboard.dataset.runs);
+  const defaultRate = Number(dashboard.dataset.defaultInputCost);
+  const storedRateValue = localStorage.getItem(storageKey);
+  const storedRate = storedRateValue === null ? Number.NaN : Number(storedRateValue);
+  const initialRate = Number.isFinite(storedRate) && storedRate >= 0 ? storedRate : defaultRate;
+  const formatCurrency = (value) => new Intl.NumberFormat("en-US", {
+    style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 4,
+  }).format(value);
+  const updateCosts = (rate) => {
+    const total = savedTokens / 1000000 * rate;
+    totalCost.textContent = formatCurrency(total);
+    averageCost.textContent = formatCurrency(runs === 0 ? 0 : total / runs);
+    chartCostRate.textContent = formatCurrency(rate);
+  };
+
+  rateInput.value = String(initialRate);
+  updateCosts(initialRate);
+  rateInput.addEventListener("input", () => {
+    const rate = Number(rateInput.value);
+    if (!Number.isFinite(rate) || rate < 0) return;
+    localStorage.setItem(storageKey, String(rate));
+    updateCosts(rate);
+  });
+})();
+</script>
 </body>
 </html>
 `;
