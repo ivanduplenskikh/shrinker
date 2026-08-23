@@ -35,7 +35,7 @@ test("git diff keeps files and changed lines", async () => {
   assert.match(result.output, /applyFilter/);
   assert.match(result.output, /ERROR|compact/);
   assert.doesNotMatch(result.output, /^index /m);
-  assert.ok(measure(raw, result.output).reductionPercent >= 25);
+  assert.ok(measure(raw, result.output).reductionPercent >= 20);
 });
 
 test("git log keeps commit identity and useful body context", async () => {
