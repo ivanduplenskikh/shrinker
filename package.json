@@ -4,7 +4,7 @@
   "description": "Local deterministic command-output shrinker for coding agents",
   "type": "module",
   "bin": {
-    "shrink": "./dist/src/cli.js"
+    "shrinker": "./dist/src/cli.js"
   },
   "scripts": {
     "start": "tsc -w -p tsconfig.json",
@@ -12,8 +12,8 @@
     "pack": "npm run build --silent && npm pack",
     "test": "npm run build --silent && node --test \"dist/tests/*.test.js\"",
     "demo": "npm run build --silent && node dist/demo/run-demo.js",
-    "install:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/install-shrink.ps1",
-    "uninstall:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/uninstall-shrink.ps1",
+    "install:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/install-shrinker.ps1",
+    "uninstall:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/uninstall-shrinker.ps1",
     "install:package": "pwsh -ExecutionPolicy Bypass -File ./integrations/install.ps1",
     "uninstall:package": "pwsh -ExecutionPolicy Bypass -File ./integrations/uninstall.ps1"
   },

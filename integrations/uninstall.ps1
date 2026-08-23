@@ -14,7 +14,7 @@ if ($CopilotOnly -and $ClaudeOnly) {
 
 $globalRoot = (& npm root --global).Trim()
 $packageRoot = Join-Path $globalRoot ($PackageName -replace '/', '\')
-$localUninstaller = Join-Path $packageRoot "integrations\uninstall-shrink.ps1"
+$localUninstaller = Join-Path $packageRoot "integrations\uninstall-shrinker.ps1"
 if (Test-Path $localUninstaller) {
     $localArgs = @("-ExecutionPolicy", "Bypass", "-File", $localUninstaller, "-SkipUnlink")
     if ($SkipAgentRules) { $localArgs += "-SkipAgentRules" }

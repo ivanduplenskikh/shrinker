@@ -80,12 +80,12 @@ function Add-ProfileIntegration {
         New-Item -ItemType File -Path $ProfileFile -Force | Out-Null
     }
 
-    $startMarker = "# >>> shrink integration >>>"
-    $endMarker = "# <<< shrink integration <<<"
+    $startMarker = "# >>> shrinker integration >>>"
+    $endMarker = "# <<< shrinker integration <<<"
 
     $existing = Get-Content -Path $ProfileFile -Raw -ErrorAction SilentlyContinue
     if ($existing -and $existing.Contains($startMarker)) {
-        Write-Host "Profile already contains shrink integration block: $ProfileFile"
+        Write-Host "Profile already contains shrinker integration block: $ProfileFile"
         return
     }
 
@@ -96,13 +96,13 @@ $endMarker
 "@
 
     Add-Content -Path $ProfileFile -Value "`n$block`n"
-    Write-Host "Added shrink integration block to profile: $ProfileFile"
+    Write-Host "Added shrinker integration block to profile: $ProfileFile"
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $templatePath = Join-Path $scriptDir "..\templates\agent-rules.md"
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
-$integrationPath = (Resolve-Path (Join-Path $scriptDir "shrink-profile.ps1")).Path
+$integrationPath = (Resolve-Path (Join-Path $scriptDir "shrinker-profile.ps1")).Path
 
 if (-not $SkipAgentRules) {
     if (-not (Test-Path $templatePath)) {
@@ -111,7 +111,7 @@ if (-not $SkipAgentRules) {
     $rulesBody = Get-Content -Path $templatePath -Raw
 }
 
-Write-Host "Installing shrink from: $repoRoot"
+Write-Host "Installing shrinker from: $repoRoot"
 $nodeVersion = Test-NodeVersion
 Write-Host "Detected Node.js: $nodeVersion"
 
@@ -152,7 +152,7 @@ if (-not $SkipProfile) {
     }
     else {
         Write-Host "Profile routing not enabled (default). Native commands remain unchanged."
-        Write-Host "To enable routing later: pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrink.ps1 -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting"
+        Write-Host "To enable routing later: pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrinker.ps1 -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting"
     }
 }
 else {
@@ -163,4 +163,4 @@ if (-not $SkipAgentRules) {
     Set-AgentRules -RepoRoot (Get-Location).Path -Body $rulesBody
 }
 
-Write-Host "Install complete. Try: shrink help"
+Write-Host "Install complete. Try: shrinker help"

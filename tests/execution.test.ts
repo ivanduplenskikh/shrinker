@@ -196,7 +196,7 @@ test("CLI treats non-keyword top-level input as the command to wrap", () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /shorthand works/);
-  assert.doesNotMatch(result.stderr, /\[shrink\]/);
+  assert.doesNotMatch(result.stderr, /\[shrinker\]/);
 });
 
 test("CLI prints per-run measurements only when requested", () => {
@@ -216,7 +216,7 @@ test("CLI prints per-run measurements only when requested", () => {
   );
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stderr, /\[shrink\].*est\. tokens/);
+  assert.match(result.stderr, /\[shrinker\].*est\. tokens/);
 });
 
 test("CLI does not emit recovery hints for Git metadata-only compaction", () => {
@@ -233,7 +233,7 @@ test("CLI does not emit recovery hints for Git metadata-only compaction", () => 
   );
 
   assert.equal(result.status, 0, result.stderr);
-  assert.doesNotMatch(result.stderr, /\[full: shrink raw/);
+  assert.doesNotMatch(result.stderr, /\[full: shrinker raw/);
 });
 
 test("CLI does not emit recovery hints for reproducible wrapped Git history", () => {
@@ -245,7 +245,7 @@ test("CLI does not emit recovery hints for reproducible wrapped Git history", ()
   );
 
   assert.equal(result.status, 0, result.stderr);
-  assert.doesNotMatch(result.stderr, /\[full: shrink raw/);
+  assert.doesNotMatch(result.stderr, /\[full: shrinker raw/);
 });
 
 test("CLI help is a successful reserved command", () => {
@@ -253,10 +253,10 @@ test("CLI help is a successful reserved command", () => {
   for (const help of [["help"], ["--help"], []]) {
     const result = spawnSync(process.execPath, [cli, ...help], { encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /shrink <command> \[args\.\.\.\]/);
-    assert.match(result.stdout, /shrink stats/);
-    assert.match(result.stdout, /shrink last/);
-    assert.match(result.stdout, /shrink raw/);
+    assert.match(result.stdout, /shrinker <command> \[args\.\.\.\]/);
+    assert.match(result.stdout, /shrinker stats/);
+    assert.match(result.stdout, /shrinker last/);
+    assert.match(result.stdout, /shrinker raw/);
     assert.match(result.stdout, /--metrics/);
   }
 });

@@ -8,7 +8,7 @@ import { writeStatsDashboard } from "../src/metrics/dashboard.js";
 import { formatStats, formatStatsChart, getStats, recordRun } from "../src/metrics/stats-store.js";
 
 test("SQLite stats persist and aggregate runs by filter", async (context) => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "shrink-stats-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-stats-"));
   context.after(async () => await rm(directory, { recursive: true, force: true }));
   const databasePath = path.join(directory, "stats.db");
 
@@ -67,7 +67,7 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
 });
 
 test("an empty stats database returns zero totals", async (context) => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "shrink-stats-empty-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-stats-empty-"));
   context.after(async () => await rm(directory, { recursive: true, force: true }));
   const summary = getStats(path.join(directory, "stats.db"));
 

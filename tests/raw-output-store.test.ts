@@ -6,7 +6,7 @@ import test from "node:test";
 import { getLatestRawOutput, getRawOutput, saveRawOutput } from "../src/execution/raw-output-store.js";
 
 test("latest raw output returns the newest saved capture", async (context) => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "shrink-raw-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-raw-"));
   context.after(async () => await rm(directory, { recursive: true, force: true }));
 
   const first = await saveRawOutput("first", ["git", "log"], directory);
@@ -21,7 +21,7 @@ test("latest raw output returns the newest saved capture", async (context) => {
 });
 
 test("exact lookup ignores ID-like text in the command slug", async (context) => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "shrink-raw-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-raw-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
 
   await saveRawOutput("wrong", ["tool_deadbeef_build"], directory);
@@ -30,7 +30,7 @@ test("exact lookup ignores ID-like text in the command slug", async (context) =>
 });
 
 test("concurrent raw captures use unique file names", async (context) => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "shrink-raw-concurrent-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-raw-concurrent-"));
   context.after(async () => await rm(directory, { recursive: true, force: true }));
 
   const captures = await Promise.all(
@@ -46,7 +46,7 @@ test("concurrent raw captures use unique file names", async (context) => {
 });
 
 test("concurrent rotation retains at most twenty complete captures", async (context) => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "shrink-raw-rotation-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-raw-rotation-"));
   context.after(async () => await rm(directory, { recursive: true, force: true }));
 
   await Promise.all(
@@ -64,13 +64,13 @@ test("concurrent rotation retains at most twenty complete captures", async (cont
 });
 
 test("latest raw output is absent before the first capture", async (context) => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "shrink-raw-empty-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-raw-empty-"));
   context.after(async () => await rm(directory, { recursive: true, force: true }));
   assert.equal(await getLatestRawOutput(directory), undefined);
 });
 
 test("temporary files from dead writers are recovered", async (context) => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "shrink-raw-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-raw-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
 
   const temporaryPath = path.join(directory, "orphan.log.999999.tmp");

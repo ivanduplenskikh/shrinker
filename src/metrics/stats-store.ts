@@ -48,7 +48,7 @@ interface AggregateRow {
 }
 
 export function defaultStatsPath(): string {
-  return path.join(os.homedir(), ".shrink", "stats.db");
+  return path.join(os.homedir(), ".shrinker", "stats.db");
 }
 
 function openDatabase(databasePath: string): DatabaseSync {
@@ -196,7 +196,7 @@ export function formatStats(summary: StatsSummary): string {
   const last7 = `Last 7 days: ${formatRuns(summary.last7Days.runs)} | est. ${formatInteger(summary.last7Days.estimatedTokensSaved)} tokens saved | -${summary.last7Days.reductionPercent}%`;
 
   const lines = [
-    "Shrink Token Savings Dashboard",
+    "Shrinker Token Savings Dashboard",
     "================================",
     "Overview",
     `  ${allTime}`,
@@ -222,7 +222,7 @@ export function formatStats(summary: StatsSummary): string {
 }
 
 export function formatStatsChart(summary: StatsSummary): string {
-  const lines = ["Shrink Token Savings - Last 30 Days", "====================================="];
+  const lines = ["Shrinker Token Savings - Last 30 Days", "====================================="];
   if (summary.daily.length === 0) {
     lines.push("No recorded runs in the last 30 days.");
     return lines.join("\n");

@@ -34,8 +34,8 @@ function Remove-ProfileIntegration {
         return
     }
 
-    $startMarker = "# >>> shrink integration >>>"
-    $endMarker = "# <<< shrink integration <<<"
+    $startMarker = "# >>> shrinker integration >>>"
+    $endMarker = "# <<< shrinker integration <<<"
     $content = Get-Content -Path $ProfileFile -Raw
     if ($null -eq $content -or $content.Length -eq 0) {
         Write-Host "Profile is empty; nothing to remove."
@@ -44,7 +44,7 @@ function Remove-ProfileIntegration {
 
     $start = $content.IndexOf($startMarker)
     if ($start -lt 0) {
-        Write-Host "No shrink integration block found in profile."
+        Write-Host "No shrinker integration block found in profile."
         return
     }
 
@@ -57,7 +57,7 @@ function Remove-ProfileIntegration {
     $end += $endMarker.Length
     $updated = $content.Remove($start, $end - $start)
     Set-Content -Path $ProfileFile -Value $updated
-    Write-Host "Removed shrink integration block from: $ProfileFile"
+    Write-Host "Removed shrinker integration block from: $ProfileFile"
 }
 
 if (-not $SkipUnlink) {
@@ -69,7 +69,7 @@ if (-not $SkipUnlink) {
 }
 
 Remove-ProfileIntegration -ProfileFile $ProfilePath
-Write-Host "If this terminal previously loaded shrink-profile.ps1, restart terminal or remove Function:git/Function:rg wrappers from current session."
+Write-Host "If this terminal previously loaded shrinker-profile.ps1, restart terminal or remove Function:git/Function:rg wrappers from current session."
 
 if (-not $SkipAgentRules) {
     if (-not $ClaudeOnly) { Remove-AgentRules -Path (Join-Path (Get-Location).Path ".copilot-instructions.md") }

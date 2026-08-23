@@ -41,5 +41,5 @@ export function formatMeasurements(
     measurements.estimatedTokensSaved > 0 && measurements.estimatedTokensSaved < 50
       ? `${measurements.estimatedTokensSaved} saved, small absolute gain`
       : `${measurements.estimatedTokensSaved} saved`;
-  return `[shrink] ${measurements.rawBytes}B -> ${measurements.outputBytes}B | est. tokens ${measurements.rawEstimatedTokens} -> ${measurements.outputEstimatedTokens} (${gain}) | -${measurements.reductionPercent}%${duration}`;
+  return `[shrinker] ${measurements.rawBytes}B -> ${measurements.outputBytes}B | est. tokens ${measurements.rawEstimatedTokens} -> ${measurements.outputEstimatedTokens} (${gain}) | -${measurements.reductionPercent}%${duration}`;
 }

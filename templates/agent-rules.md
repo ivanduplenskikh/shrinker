@@ -1,19 +1,19 @@
-Use `shrink` for high-volume terminal outputs to reduce tokens.
+Use `shrinker` for high-volume terminal outputs to reduce tokens.
 
 Routing policy:
-- `git status|diff|log|show|reflog|branch|tag|stash` -> `shrink git ...`
-- `npm test|t|install|i|ci|ls|list` -> `shrink npm ...`
-- `docker ps|logs|images|compose` -> `shrink docker ...`
-- `kubectl get|describe|logs` -> `shrink kubectl ...`
-- `gh pr|issue|run` -> `shrink gh ...`
-- `rg`, `find`, `tail`, `cat`, `ls`, `dir` -> `shrink <command> ...`
+- `git status|diff|log|show|reflog|branch|tag|stash` -> `shrinker git ...`
+- `npm test|t|install|i|ci|ls|list` -> `shrinker npm ...`
+- `docker ps|logs|images|compose` -> `shrinker docker ...`
+- `kubectl get|describe|logs` -> `shrinker kubectl ...`
+- `gh pr|issue|run` -> `shrinker gh ...`
+- `rg`, `find`, `tail`, `cat`, `ls`, `dir` -> `shrinker <command> ...`
 
-Bypass shrink when:
+Bypass shrinker when:
 - command modifies remote state and output volume is already tiny
 - command requires interactive stdin
-- command explicitly needs `shrink --raw`
+- command explicitly needs `shrinker --raw`
 
 Examples:
-- `shrink git log -n 20`
-- `shrink rg "pattern" src`
-- `shrink docker logs api --tail 500`
+- `shrinker git log -n 20`
+- `shrinker rg "pattern" src`
+- `shrinker docker logs api --tail 500`

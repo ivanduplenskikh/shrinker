@@ -76,7 +76,7 @@ export function writeStatsDashboard(summary: StatsSummary, outputPath = defaultD
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shrink stats dashboard</title>
+<title>Shrinker stats dashboard</title>
 <style>
 :root { color-scheme: light; --ink: #17202a; --muted: #66727f; --line: #dce3e8; --blue: #2774d9; --blue-soft: #eaf2ff; --green: #16856b; --surface: #ffffff; --background: #f4f7fa; }
 * { box-sizing: border-box; }
@@ -113,7 +113,7 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
 <body>
 <main>
   <p class="eyebrow">Local activity</p>
-  <h1>Shrink stats</h1>
+  <h1>Shrinker stats</h1>
   <p class="subtitle">Token reduction over the last 30 days</p>
   <section class="cards">
     <div class="card"><label>All-time saved</label><strong>${formatInteger(summary.total.estimatedTokensSaved)}</strong></div>

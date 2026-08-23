@@ -61,8 +61,8 @@ async function runWindowsAlias(command: string, args: string[]): Promise<Command
   if (parsed.unsupportedOption) {
     return {
       stdout: "",
-      stderr: `Unsupported ${alias} option in shrink alias mode: ${parsed.unsupportedOption}`,
-      combined: `Unsupported ${alias} option in shrink alias mode: ${parsed.unsupportedOption}`,
+      stderr: `Unsupported ${alias} option in shrinker alias mode: ${parsed.unsupportedOption}`,
+      combined: `Unsupported ${alias} option in shrinker alias mode: ${parsed.unsupportedOption}`,
       exitCode: 2,
       durationMs: Math.round(performance.now() - started),
     };

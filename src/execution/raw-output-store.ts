@@ -22,7 +22,7 @@ export interface RawCapture {
 }
 
 export function defaultRawDirectory(): string {
-  return path.join(os.homedir(), ".shrink", "raw");
+  return path.join(os.homedir(), ".shrinker", "raw");
 }
 
 function safeSlug(command: string[]): string {

@@ -27,7 +27,7 @@ if (-not $globalRoot) {
 }
 
 $packageRoot = Join-Path $globalRoot ($PackageName -replace '/', '\')
-$localInstaller = Join-Path $packageRoot "integrations\install-shrink.ps1"
+$localInstaller = Join-Path $packageRoot "integrations\install-shrinker.ps1"
 if (-not (Test-Path $localInstaller)) {
     throw "Installed package integration not found: $localInstaller"
 }
@@ -43,4 +43,4 @@ if ($LASTEXITCODE -ne 0) {
     throw "Installed package integration failed with exit code $LASTEXITCODE"
 }
 
-Write-Host "Package installation complete. Try: shrink help"
+Write-Host "Package installation complete. Try: shrinker help"

@@ -6,7 +6,7 @@ this POC proves that a few conservative, deterministic filters can save useful c
 
 ## What the POC demonstrates
 
-- Explicit cross-agent command wrapping: `shrink exec -- <command>`.
+- Explicit cross-agent command wrapping: `shrinker exec -- <command>`.
 - Filters for Git status, Git diff, test output, and generic logs.
 - Failures, warnings, changed paths, and command exit codes are preserved.
 - Omitted raw output is saved locally for recovery.
@@ -36,10 +36,10 @@ irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations
 
 This script installs `@ivanduplenskikh/shrinker` from `https://npm.pkg.github.com` and installs Copilot/Claude rules by default.
 
-To enable automatic PowerShell routing (so `git log` routes through `shrink`), download the script and pass the option:
+To enable automatic PowerShell routing (so `git log` routes through `shrinker`), download the script and pass the option:
 
 ```powershell
-$tmp = Join-Path $env:TEMP "install-shrink.ps1"
+$tmp = Join-Path $env:TEMP "install-shrinker.ps1"
 Invoke-WebRequest "https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1" -OutFile $tmp
 pwsh -ExecutionPolicy Bypass -File $tmp -EnableProfileRouting
 ```
@@ -47,7 +47,7 @@ pwsh -ExecutionPolicy Bypass -File $tmp -EnableProfileRouting
 For a local checkout, use the complete installer without profile routing:
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrink.ps1
+pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrinker.ps1
 ```
 
 This writes managed guidance blocks to:
@@ -57,7 +57,7 @@ This writes managed guidance blocks to:
 
 The shared guidance source is `templates/agent-rules.md`; the two files above are generated in the target project.
 
-The rules tell agents to prefer `shrink <command>` for high-volume commands while leaving native commands untouched.
+The rules tell agents to prefer `shrinker <command>` for high-volume commands while leaving native commands untouched.
 
 ### Remote package uninstall
 
@@ -72,26 +72,26 @@ irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations
 If you cloned this repository and want to run scripts directly from the local path:
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrink.ps1
+pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrinker.ps1
 ```
 
 To uninstall:
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrink.ps1
+pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrinker.ps1
 ```
 
 Uninstall options:
 
 ```powershell
-# Remove only profile routing, keep shrink command installed
-pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrink.ps1 -SkipUnlink
+# Remove only profile routing, keep shrinker command installed
+pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrinker.ps1 -SkipUnlink
 
 # Remove managed Copilot/Claude rules block only
-pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrink.ps1 -SkipUnlink
+pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrinker.ps1 -SkipUnlink
 ```
 
-If your current terminal had already loaded `shrink-profile.ps1`, restart terminal (or remove loaded wrapper functions) to fully return to native command behavior.
+If your current terminal had already loaded `shrinker-profile.ps1`, restart terminal (or remove loaded wrapper functions) to fully return to native command behavior.
 
 ```powershell
 npm install
@@ -104,25 +104,25 @@ Get-Content .\tests\fixtures\generic-log.txt -Raw |
   node dist\src\cli.js pipe --kind log
 ```
 
-To install the `shrink` command locally:
+To install the `shrinker` command locally:
 
 ```powershell
 npm link
-shrink git status
-shrink git log -n 10
-shrink npm test
+shrinker git status
+shrinker git log -n 10
+shrinker npm test
 ```
 
 ## CLI
 
 ```text
-shrink <command> [args...]
-shrink exec [options] [--] <command> [args...]
-shrink pipe [options]
-shrink stats [--json]
-shrink last [--path]
-shrink raw <capture-id> [--path]
-shrink help
+shrinker <command> [args...]
+shrinker exec [options] [--] <command> [args...]
+shrinker pipe [options]
+shrinker stats [--json]
+shrinker last [--path]
+shrinker raw <capture-id> [--path]
+shrinker help
 
 --kind <auto|git-status|git-diff|git-log|test|log>
 --max-lines <number>       default: 120
@@ -133,18 +133,18 @@ shrink help
 --no-stats                 do not record this run
 ```
 
-`help`, `stats`, `last`, `raw`, `pipe`, and `exec` are reserved shrink commands. Every other top-level token starts a wrapped command, so `shrink git log` is equivalent to `shrink exec git log`. The `--` separator remains optional because npm's PowerShell shim may consume it. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified.
+`help`, `stats`, `last`, `raw`, `pipe`, and `exec` are reserved shrinker commands. Every other top-level token starts a wrapped command, so `shrinker git log` is equivalent to `shrinker exec git log`. The `--` separator remains optional because npm's PowerShell shim may consume it. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified.
 
 ## Automatic PowerShell routing
 
-The optional profile integration routes allowlisted commands through `shrink` and invokes the native executable for everything else. Install it after `npm link`:
+The optional profile integration routes allowlisted commands through `shrinker` and invokes the native executable for everything else. Install it after `npm link`:
 
 ```powershell
 if (!(Test-Path $PROFILE)) {
     New-Item -ItemType File -Path $PROFILE -Force | Out-Null
 }
 
-$integration = (Resolve-Path .\integrations\shrink-profile.ps1).Path
+$integration = (Resolve-Path .\integrations\shrinker-profile.ps1).Path
 Add-Content $PROFILE "`n. `"$integration`""
 . $PROFILE
 ```
@@ -152,23 +152,23 @@ Add-Content $PROFILE "`n. `"$integration`""
 The default rules are:
 
 ```text
-git status  -> shrink git status
-git diff    -> shrink git diff
-git log     -> shrink git log
-npm test    -> shrink npm test
-docker ps   -> shrink docker ps
-kubectl get -> shrink kubectl get
-gh pr list  -> shrink gh pr list
-rg/find/tail/cat/ls/dir -> shrink <command>
+git status  -> shrinker git status
+git diff    -> shrinker git diff
+git log     -> shrinker git log
+npm test    -> shrinker npm test
+docker ps   -> shrinker docker ps
+kubectl get -> shrinker kubectl get
+gh pr list  -> shrinker gh pr list
+rg/find/tail/cat/ls/dir -> shrinker <command>
 
 git push, git fetch, and all other commands -> native executable
 ```
 
-Edit `$global:ShrinkPowerShellRules` in `integrations\shrink-profile.ps1` to change the allowlist. The router is now option-aware for common global flags, so forms like `git -C <path> log` and `kubectl --context prod get pods` are routed correctly.
+Edit `$global:ShrinkPowerShellRules` in `integrations\shrinker-profile.ps1` to change the allowlist. The router is now option-aware for common global flags, so forms like `git -C <path> log` and `kubectl --context prod get pods` are routed correctly.
 
 ## Savings statistics
 
-Filtered runs are recorded locally in `~/.shrink/stats.db`. The database stores only measurements, filter kind, executable basename, duration, omission state, and exit code. It does **not** store command arguments or command output.
+Filtered runs are recorded locally in `~/.shrinker/stats.db`. The database stores only measurements, filter kind, executable basename, duration, omission state, and exit code. It does **not** store command arguments or command output.
 
 ```powershell
 node dist\src\cli.js stats
@@ -180,7 +180,7 @@ node dist\src\cli.js stats --dashboard
 The summary shows all-time and last-seven-day savings plus a breakdown by filter. Use `--no-stats` before `--` to opt out for an individual run:
 
 `stats --chart` shows daily runs, estimated tokens saved, reduction percentage, and an activity bar for the last 30 days.
-`stats --dashboard` writes a self-contained browser dashboard to `~/.shrink/dashboard.html` with a line chart and filter breakdown.
+`stats --dashboard` writes a self-contained browser dashboard to `~/.shrinker/dashboard.html` with a line chart and filter breakdown.
 
 ```powershell
 node dist\src\cli.js exec --no-stats -- git log -n 10
@@ -189,16 +189,16 @@ node dist\src\cli.js exec --no-stats -- git log -n 10
 Detailed per-run measurements are hidden by default so agents do not spend tokens reading wrapper telemetry. Enable them for benchmarking or demos:
 
 ```powershell
-shrink --metrics git log -n 10
+shrinker --metrics git log -n 10
 ```
 
-When meaningful content is omitted, the full capture is saved under `~/.shrink/raw` and a compact exact-recovery hint such as `[full: shrink raw ab12cd34]` is printed instead of an absolute path. Retrieve it only when needed:
+When meaningful content is omitted, the full capture is saved under `~/.shrinker/raw` and a compact exact-recovery hint such as `[full: shrinker raw ab12cd34]` is printed instead of an absolute path. Retrieve it only when needed:
 
 ```powershell
-shrink raw ab12cd34
-shrink raw ab12cd34 --path
-shrink last
-shrink last --path
+shrinker raw ab12cd34
+shrinker raw ab12cd34 --path
+shrinker last
+shrinker last --path
 ```
 
 `raw` retrieves the exact capture referenced by a hint; `last` is a convenience for human use. The cache uses atomic publication and best-effort rotation to retain up to 20 recent files. File names contain only the executable name, not command arguments. Wrapped `git log` output never creates a recovery file or hint because the full history can be reproduced by rerunning Git; piped Git-log text still gets a recovery hint when meaningful content is omitted. Use `--no-save` for other output that should not be persisted.

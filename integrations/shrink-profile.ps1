@@ -68,7 +68,7 @@ function Use-ShrinkRouting {
 }
 
 function Get-ShrinkCommandPath {
-    $candidates = Get-Command shrink -All -ErrorAction SilentlyContinue
+    $candidates = Get-Command shrinker -All -ErrorAction SilentlyContinue
     if (-not $candidates) {
         return $null
     }

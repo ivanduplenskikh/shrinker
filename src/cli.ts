@@ -29,13 +29,13 @@ interface CliOptions {
 
 function usage(): string {
   return `Usage:
-  shrink <command> [args...]
-  shrink exec [options] [--] <command> [args...]
-  shrink pipe [options]
-  shrink stats [--json] [--chart] [--dashboard]
-  shrink last [--path]
-  shrink raw <capture-id> [--path]
-  shrink help
+  shrinker <command> [args...]
+  shrinker exec [options] [--] <command> [args...]
+  shrinker pipe [options]
+  shrinker stats [--json] [--chart] [--dashboard]
+  shrinker last [--path]
+  shrinker raw <capture-id> [--path]
+  shrinker help
 
 Options:
   --kind <auto|git-status|git-diff|git-log|git-list|npm|tail|find|rg|docker|kubectl|cat|gh|test|log>
@@ -45,7 +45,7 @@ Options:
   --metrics                  print per-run savings and duration
   --no-save                  do not save omitted raw output
   --no-stats                 do not record this run
-  --dashboard                write a browser dashboard to ~/.shrink/dashboard.html
+  --dashboard                write a browser dashboard to ~/.shrinker/dashboard.html
   --help`;
 }
 
@@ -196,7 +196,7 @@ async function render(
       { maxLines: options.maxLines, perFileLines: options.perFileLines },
     );
   } catch (error) {
-    process.stderr.write(`[shrink] filter failed; returning raw output: ${String(error)}\n`);
+    process.stderr.write(`[shrinker] filter failed; returning raw output: ${String(error)}\n`);
     process.stdout.write(rawOutput);
     return;
   }
@@ -221,7 +221,7 @@ async function render(
         ...(exitCode === undefined ? {} : { exitCode }),
       });
     } catch (error) {
-      process.stderr.write(`[shrink] could not record stats: ${String(error)}\n`);
+      process.stderr.write(`[shrinker] could not record stats: ${String(error)}\n`);
     }
   }
 
@@ -230,9 +230,9 @@ async function render(
   if (result.omitted && options.save && shouldSave) {
     try {
       const capture = await saveRawOutput(rawOutput, options.command);
-      process.stderr.write(`[full: shrink raw ${capture.id}]\n`);
+      process.stderr.write(`[full: shrinker raw ${capture.id}]\n`);
     } catch (error) {
-      process.stderr.write(`[shrink] could not save full output: ${String(error)}\n`);
+      process.stderr.write(`[shrinker] could not save full output: ${String(error)}\n`);
     }
   }
 }

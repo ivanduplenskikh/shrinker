@@ -24,6 +24,6 @@ commit 42d934db022cf6869478ad499f8f1b6c98dd2ac9 (origin/main, main)
 Author: Linus Maintainer <linus@example.com>
 Date:   Tue Aug 19 09:10:00 2026 +0200
 
-    Scaffold the shrink CLI
+    Scaffold the shrinker CLI
 
     Add TypeScript compilation, command parsing, and initial fixtures.
