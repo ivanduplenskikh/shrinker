@@ -243,12 +243,13 @@ node dist\src\cli.js stats
 node dist\src\cli.js stats --json
 node dist\src\cli.js stats --chart
 node dist\src\cli.js stats --dashboard
+node dist\src\cli.js stats --dashboard --port 4318
 ```
 
 The summary shows all-time and last-seven-day savings plus a breakdown by filter. Use `--no-stats` before `--` to opt out for an individual run:
 
 `stats --chart` shows daily runs, estimated tokens saved, reduction percentage, and an activity bar for the last 30 days.
-`stats --dashboard` writes a self-contained browser dashboard to `~/.shrinker/dashboard.html` with a line chart and filter breakdown.
+`stats --dashboard` starts the local dashboard server in the background at `http://127.0.0.1:4317` and opens it in your browser, then returns to the terminal. The page reads the latest local stats whenever it is refreshed; use `--port` to choose another port. The generated HTML is also kept at `~/.shrinker/dashboard.html`.
 
 ```powershell
 node dist\src\cli.js exec --no-stats -- git log -n 10

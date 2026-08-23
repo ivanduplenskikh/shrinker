@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import type { StatsSummary } from "./stats-store.js";
@@ -145,4 +146,54 @@ export function openStatsDashboard(outputPath: string): void {
   const command = platform === "darwin" ? "open" : "xdg-open";
   const child = spawn(command, [outputPath], { detached: true, stdio: "ignore" });
   child.unref();
+}
+
+export function serveStatsDashboard(getSummary: () => StatsSummary, port = 4317): Promise<void> {
+  const server = createServer((request, response) => {
+    if (request.url !== "/") {
+      response.writeHead(404);
+      response.end("Not found");
+      return;
+    }
+
+    try {
+      const dashboardPath = writeStatsDashboard(getSummary());
+      const html = readFileSync(dashboardPath, "utf8");
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      response.end(html);
+    } catch (error) {
+      response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+      response.end(`Could not render dashboard: ${String(error)}`);
+    }
+  });
+
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", () => {
+      const url = `http://127.0.0.1:${port}`;
+      process.stdout.write(`Dashboard server running at ${url}\n`);
+      openStatsDashboard(url);
+      resolve();
+    });
+  });
+}
+
+export async function startStatsDashboard(port = 4317): Promise<{ pid: number; reused: boolean }> {
+  const url = `http://127.0.0.1:${port}`;
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(500) });
+    const body = await response.text();
+    if (response.ok && body.includes("Shrinker stats")) {
+      openStatsDashboard(url);
+      return { pid: 0, reused: true };
+    }
+  } catch {}
+
+  const child = spawn(
+    process.execPath,
+    [process.argv[1] ?? "", "stats", "--dashboard", "--dashboard-server", "--port", String(port)],
+    { detached: true, stdio: "ignore" },
+  );
+  child.unref();
+  return { pid: child.pid ?? 0, reused: false };
 }

@@ -7,7 +7,7 @@ import { runCommand } from "./execution/run-command.js";
 import { getLatestRawOutput, getRawOutput, saveRawOutput } from "./execution/raw-output-store.js";
 import { cleanText } from "./formatting/ansi.js";
 import { formatMeasurements, measure } from "./metrics/measure.js";
-import { openStatsDashboard, writeStatsDashboard } from "./metrics/dashboard.js";
+import { serveStatsDashboard, startStatsDashboard } from "./metrics/dashboard.js";
 import { defaultStatsPath, formatStats, formatStatsChart, getStats, recordRun } from "./metrics/stats-store.js";
 
 interface CliOptions {
@@ -20,6 +20,8 @@ interface CliOptions {
   json: boolean;
   chart: boolean;
   dashboard: boolean;
+  dashboardServer: boolean;
+  dashboardPort: number;
   showPath: boolean;
   captureId?: string;
   maxLines: number;
@@ -32,7 +34,7 @@ function usage(): string {
   shrinker <command> [args...]
   shrinker exec [options] [--] <command> [args...]
   shrinker pipe [options]
-  shrinker stats [--json] [--chart] [--dashboard]
+  shrinker stats [--json] [--chart] [--dashboard] [--port <number>]
   shrinker last [--path]
   shrinker raw <capture-id> [--path]
   shrinker help
@@ -45,7 +47,8 @@ Options:
   --metrics                  print per-run savings and duration
   --no-save                  do not save omitted raw output
   --no-stats                 do not record this run
-  --dashboard                write a browser dashboard to ~/.shrinker/dashboard.html
+  --dashboard                serve and open the local dashboard at http://127.0.0.1:4317
+  --port <number>            dashboard server port (default: 4317)
   --help`;
 }
 
@@ -84,6 +87,8 @@ function parseArgs(args: string[]): CliOptions {
   let json = false;
   let chart = false;
   let dashboard = false;
+  let dashboardServer = false;
+  let dashboardPort = 4317;
   let showPath = false;
   let captureId: string | undefined;
   let maxLines = 120;
@@ -102,6 +107,8 @@ function parseArgs(args: string[]): CliOptions {
     else if (option === "--json" && mode === "stats") json = true;
     else if (option === "--chart" && mode === "stats") chart = true;
     else if (option === "--dashboard" && mode === "stats") dashboard = true;
+    else if (option === "--dashboard-server" && mode === "stats") dashboardServer = true;
+    else if (option === "--port" && mode === "stats") dashboardPort = parsePositiveInteger(args.shift(), "--port");
     else if (option === "--path" && mode === "last") showPath = true;
     else if (option === "--path" && mode === "raw-output") showPath = true;
     else if (mode === "raw-output" && option && !option.startsWith("-") && !captureId) {
@@ -160,6 +167,8 @@ function parseArgs(args: string[]): CliOptions {
     json,
     chart,
     dashboard,
+    dashboardServer,
+    dashboardPort,
     showPath,
     ...(captureId ? { captureId } : {}),
     maxLines,
@@ -248,9 +257,16 @@ async function main(): Promise<void> {
   if (options.mode === "stats") {
     const summary = getStats(defaultStatsPath());
     if (options.dashboard) {
-      const dashboardPath = writeStatsDashboard(summary);
-      process.stdout.write(`Dashboard written to: ${dashboardPath}\n`);
-      openStatsDashboard(dashboardPath);
+      if (options.dashboardServer) {
+        await serveStatsDashboard(() => getStats(defaultStatsPath()), options.dashboardPort);
+      } else {
+        const dashboard = await startStatsDashboard(options.dashboardPort);
+        if (dashboard.reused) {
+          process.stdout.write(`Dashboard server already running at http://127.0.0.1:${options.dashboardPort}\n`);
+        } else {
+          process.stdout.write(`Dashboard server started at http://127.0.0.1:${options.dashboardPort} (PID ${dashboard.pid})\n`);
+        }
+      }
       return;
     }
     const output = options.json ? JSON.stringify(summary, null, 2) : options.chart ? formatStatsChart(summary) : formatStats(summary);
