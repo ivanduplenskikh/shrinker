@@ -11,11 +11,12 @@ param(
     [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
     [switch]$ClaudeOnly,
-    [string]$ProfilePath = $PROFILE
+    [string]$ProfilePath = $PROFILE,
+    [int]$StepOffset = 0
 )
 
 $ErrorActionPreference = "Stop"
-$InstallStep = 0
+$InstallStep = $StepOffset
 
 function Write-InstallStep {
     param([string]$Emoji, [string]$Message)
@@ -66,9 +67,8 @@ if (-not $Local) {
     $entrypoint = Join-Path $packageRoot "integrations\windows\install.ps1"
     if (-not (Test-Path $entrypoint)) { throw "Installed package installer not found: $entrypoint" }
     Write-InstallStep "⚙️" "Configuring the installed package..."
-    & pwsh -ExecutionPolicy Bypass -File $entrypoint -Local -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting:$EnableProfileRouting -SkipProfile:$SkipProfile -SkipAgentRules:$SkipAgentRules -CopilotOnly:$CopilotOnly -ClaudeOnly:$ClaudeOnly -ProfilePath $ProfilePath
+    & pwsh -ExecutionPolicy Bypass -File $entrypoint -Local -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting:$EnableProfileRouting -SkipProfile:$SkipProfile -SkipAgentRules:$SkipAgentRules -CopilotOnly:$CopilotOnly -ClaudeOnly:$ClaudeOnly -ProfilePath $ProfilePath -StepOffset $InstallStep
     if ($LASTEXITCODE -ne 0) { throw "Repository installer failed with exit code $LASTEXITCODE" }
-    Write-InstallStep "✅" "Install complete."
     return
 }
 

@@ -14,7 +14,7 @@ SKIP_AGENT_RULES=0
 COPILOT_ONLY=0
 CLAUDE_ONLY=0
 PROFILE_PATH="${PROFILE_PATH:-$HOME/.zshrc}"
-STEP=0
+STEP="${SHRINKER_STEP_OFFSET:-0}"
 
 print_message() {
   local emoji="$1"
@@ -54,7 +54,7 @@ if (( LOCAL == 0 )); then
   package_root="$(npm root --global)/$PACKAGE_NAME"
   entrypoint="$package_root/integrations/macos/install.sh"
   [[ -f "$entrypoint" ]] || { print_message "❌" "Installed package installer not found: $entrypoint" >&2; exit 1; }
-  bash "$entrypoint" --local --skip-npm-install --skip-build --skip-link \
+  SHRINKER_STEP_OFFSET="$STEP" bash "$entrypoint" --local --skip-npm-install --skip-build --skip-link \
     $( (( ENABLE_PROFILE_ROUTING )) && echo --enable-profile-routing ) \
     $( (( SKIP_PROFILE )) && echo --skip-profile ) \
     $( (( SKIP_AGENT_RULES )) && echo --skip-agent-rules ) \
