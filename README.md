@@ -18,53 +18,89 @@ this POC proves that a few conservative, deterministic filters can save useful c
 
 Requires Node.js 22.13 or newer. This is the first Node 22 release where the built-in SQLite module no longer requires an experimental flag.
 
+### One-command install (macOS zsh)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/macos/install.sh | bash
+```
+
 ### One-command install (Windows PowerShell)
 
-Quick one-liner:
-
 ```powershell
-irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1 | iex
+irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/windows/install.ps1 | iex
 ```
 
-### Package install from npm
+### Install from npm package
 
-The installer downloads the published package from the public npm registry, then installs its local integration files.
-
-```powershell
-irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1 | iex
-```
-
-This script installs `shrinker` from `https://registry.npmjs.org` and installs Copilot/Claude rules by default.
-
-To enable automatic PowerShell routing (so `git log` routes through `shrinker`), download the script and pass the option:
+Windows PowerShell:
 
 ```powershell
-$tmp = Join-Path $env:TEMP "install-shrinker.ps1"
-Invoke-WebRequest "https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/install.ps1" -OutFile $tmp
-pwsh -ExecutionPolicy Bypass -File $tmp -EnableProfileRouting
+npm install --global shrinker-ai --registry=https://registry.npmjs.org
+$pkg = Join-Path ((npm root --global).Trim()) "shrinker-ai"
+pwsh -ExecutionPolicy Bypass -File (Join-Path $pkg "integrations\\windows\\install.ps1") -Local -SkipNpmInstall -SkipBuild -SkipLink
 ```
 
-For a local checkout, use the complete installer without profile routing:
+To enable automatic PowerShell routing, add `-EnableProfileRouting` to the final command.
+
+macOS zsh:
+
+```bash
+npm install --global shrinker-ai --registry=https://registry.npmjs.org
+pkg="$(npm root --global)/shrinker-ai"
+bash "$pkg/integrations/macos/install.sh" --local --skip-npm-install --skip-build --skip-link --enable-profile-routing
+```
+
+### Install from local checkout
+
+Windows PowerShell:
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrinker.ps1
+pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Local
 ```
 
-This writes managed guidance blocks to:
+macOS zsh:
 
-- `.copilot-instructions.md`
-- `CLAUDE.md`
+```bash
+bash ./integrations/macos/install.sh --local
+```
 
-The shared guidance source is `templates/agent-rules.md`; the two files above are generated in the target project.
+This writes managed guidance blocks globally to:
+
+- `~/.copilot/copilot-instructions.md`
+- `~/.claude/CLAUDE.md`
+
+The shared guidance source is `templates/agent-rules.md`; the files above are created in the corresponding global agent directory.
 
 The rules tell agents to prefer `shrinker <command>` for high-volume commands while leaving native commands untouched.
 
-### Remote package uninstall
+### Uninstall
 
-Quick one-liner:
+If you installed from npm, remove the package first:
+
+```bash
+npm uninstall --global shrinker-ai --registry=https://registry.npmjs.org
+```
+
+If you also installed profile/rules through the package scripts, run the matching local uninstaller from the installed package before uninstalling:
+
+Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/uninstall.ps1 | iex
+$pkg = Join-Path ((npm root --global).Trim()) "shrinker-ai"
+pwsh -ExecutionPolicy Bypass -File (Join-Path $pkg "integrations\\windows\\install.ps1") -Uninstall -SkipUnlink
+```
+
+macOS zsh:
+
+```bash
+pkg="$(npm root --global)/shrinker-ai"
+bash "$pkg/integrations/macos/install.sh" --uninstall --skip-unlink
+```
+
+macOS one-liner uninstall:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/macos/uninstall.sh | bash
 ```
 
 ### Local repo install/uninstall (contributors)
@@ -72,26 +108,48 @@ irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations
 If you cloned this repository and want to run scripts directly from the local path:
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\install-shrinker.ps1
+pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Local
+```
+
+Or on macOS:
+
+```bash
+bash ./integrations/macos/install.sh --local
 ```
 
 To uninstall:
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrinker.ps1
+pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Uninstall
+```
+
+Or on macOS:
+
+```bash
+bash ./integrations/macos/install.sh --uninstall
 ```
 
 Uninstall options:
 
 ```powershell
-# Remove only profile routing, keep shrinker command installed
-pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrinker.ps1 -SkipUnlink
+# Keep shrinker command installed, but remove profile integration and managed rules
+pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Uninstall -SkipUnlink
 
-# Remove managed Copilot/Claude rules block only
-pwsh -ExecutionPolicy Bypass -File .\integrations\uninstall-shrinker.ps1 -SkipUnlink
+# Keep managed rules files unchanged while uninstalling command/profile hooks
+pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Uninstall -SkipAgentRules
 ```
 
-If your current terminal had already loaded `shrinker-profile.ps1`, restart terminal (or remove loaded wrapper functions) to fully return to native command behavior.
+macOS uninstall options:
+
+```bash
+# Keep shrinker command installed, but remove profile integration and managed rules
+bash ./integrations/macos/install.sh --uninstall --skip-unlink
+
+# Keep managed rules files unchanged while uninstalling command/profile hooks
+bash ./integrations/macos/install.sh --uninstall --skip-agent-rules
+```
+
+If your current terminal had already loaded `shrinker-profile.ps1` or `shrinker-profile.zsh`, restart terminal (or remove loaded wrapper functions) to fully return to native command behavior.
 
 ```powershell
 npm install
@@ -144,9 +202,19 @@ if (!(Test-Path $PROFILE)) {
     New-Item -ItemType File -Path $PROFILE -Force | Out-Null
 }
 
-$integration = (Resolve-Path .\integrations\shrinker-profile.ps1).Path
+$integration = (Resolve-Path .\integrations\windows\shrinker-profile.ps1).Path
 Add-Content $PROFILE "`n. `"$integration`""
 . $PROFILE
+```
+
+macOS zsh profile integration:
+
+```bash
+echo '' >> ~/.zshrc
+echo '# >>> shrinker integration >>>' >> ~/.zshrc
+echo 'source "'"$(pwd)/integrations/macos/shrinker-profile.zsh"'"' >> ~/.zshrc
+echo '# <<< shrinker integration <<<' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 The default rules are:
@@ -164,7 +232,7 @@ rg/find/tail/cat/ls/dir -> shrinker <command>
 git push, git fetch, and all other commands -> native executable
 ```
 
-Edit `$global:ShrinkPowerShellRules` in `integrations\shrinker-profile.ps1` to change the allowlist. The router is now option-aware for common global flags, so forms like `git -C <path> log` and `kubectl --context prod get pods` are routed correctly.
+Edit `$global:ShrinkPowerShellRules` in `integrations\windows\shrinker-profile.ps1` to change the allowlist. The router is now option-aware for common global flags, so forms like `git -C <path> log` and `kubectl --context prod get pods` are routed correctly.
 
 ## Savings statistics
 
@@ -285,7 +353,7 @@ How to publish:
     - `git tag v0.2.0`
     - `git push origin v0.2.0`
 3. After the workflow succeeds, install from npm:
-    - `npm install -g shrinker`
+    - `npm install -g shrinker-ai`
 
 ## Suggested roadmap
 

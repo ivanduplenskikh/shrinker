@@ -1,6 +1,6 @@
 {
-  "name": "shrinker",
-  "version": "0.1.0",
+  "name": "shrinker-ai",
+  "version": "0.1.1",
   "description": "Local deterministic command-output shrinker for coding agents",
   "type": "module",
   "bin": {
@@ -12,10 +12,14 @@
     "pack": "npm run build --silent && npm pack",
     "test": "npm run build --silent && node --test \"dist/tests/*.test.js\"",
     "demo": "npm run build --silent && node dist/demo/run-demo.js",
-    "install:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/install-shrinker.ps1",
-    "uninstall:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/uninstall-shrinker.ps1",
-    "install:package": "pwsh -ExecutionPolicy Bypass -File ./integrations/install.ps1",
-    "uninstall:package": "pwsh -ExecutionPolicy Bypass -File ./integrations/uninstall.ps1"
+    "install:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/windows/install.ps1 -Local",
+    "install:local:macos": "./integrations/macos/install.sh --local",
+    "install:github": "pwsh -ExecutionPolicy Bypass -File ./integrations/windows/install.ps1",
+    "install:github:macos": "./integrations/macos/install.sh",
+    "uninstall:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/windows/uninstall.ps1",
+    "uninstall:local:macos": "./integrations/macos/uninstall.sh",
+    "uninstall:github": "pwsh -ExecutionPolicy Bypass -File ./integrations/windows/uninstall.ps1",
+    "uninstall:github:macos": "./integrations/macos/uninstall.sh"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
