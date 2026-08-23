@@ -54,10 +54,7 @@ if (( LOCAL == 0 )); then
   package_root="$(npm root --global)/$PACKAGE_NAME"
   entrypoint="$package_root/integrations/macos/install.sh"
   [[ -f "$entrypoint" ]] || { print_message "❌" "Installed package installer not found: $entrypoint" >&2; exit 1; }
-  bash "$entrypoint" --local \
-    $( (( SKIP_NPM_INSTALL )) && echo --skip-npm-install ) \
-    $( (( SKIP_BUILD )) && echo --skip-build ) \
-    $( (( SKIP_LINK )) && echo --skip-link ) \
+  bash "$entrypoint" --local --skip-npm-install --skip-build --skip-link \
     $( (( ENABLE_PROFILE_ROUTING )) && echo --enable-profile-routing ) \
     $( (( SKIP_PROFILE )) && echo --skip-profile ) \
     $( (( SKIP_AGENT_RULES )) && echo --skip-agent-rules ) \

@@ -66,7 +66,7 @@ if (-not $Local) {
     $entrypoint = Join-Path $packageRoot "integrations\windows\install.ps1"
     if (-not (Test-Path $entrypoint)) { throw "Installed package installer not found: $entrypoint" }
     Write-InstallStep "⚙️" "Configuring the installed package..."
-    & pwsh -ExecutionPolicy Bypass -File $entrypoint -Local -SkipNpmInstall:$SkipNpmInstall -SkipBuild:$SkipBuild -SkipLink:$SkipLink -EnableProfileRouting:$EnableProfileRouting -SkipProfile:$SkipProfile -SkipAgentRules:$SkipAgentRules -CopilotOnly:$CopilotOnly -ClaudeOnly:$ClaudeOnly -ProfilePath $ProfilePath
+    & pwsh -ExecutionPolicy Bypass -File $entrypoint -Local -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting:$EnableProfileRouting -SkipProfile:$SkipProfile -SkipAgentRules:$SkipAgentRules -CopilotOnly:$CopilotOnly -ClaudeOnly:$ClaudeOnly -ProfilePath $ProfilePath
     if ($LASTEXITCODE -ne 0) { throw "Repository installer failed with exit code $LASTEXITCODE" }
     Write-InstallStep "✅" "Install complete."
     exit 0
