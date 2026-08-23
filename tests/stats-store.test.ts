@@ -74,6 +74,8 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
   assert.match(dashboard, /aspect-ratio: 53 \/ 7/);
   assert.match(dashboard, /Daily estimated token savings over the last 365 days/);
   assert.match(dashboard, /estimated tokens saved/);
+  assert.match(dashboard, /Stats are stored on this machine:/);
+  assert.doesNotMatch(dashboard, /<h2>Storage<\/h2>/);
   assert.match(dashboard, /Estimated API cost saved/);
   assert.match(dashboard, /Average saved per run/);
   assert.match(dashboard, /id="chart-cost-rate">\$5\.00<\/span> per million input tokens/);

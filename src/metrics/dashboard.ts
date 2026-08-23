@@ -129,6 +129,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 42px 28px 56px; }
 .eyebrow { margin: 0 0 8px; color: var(--blue); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.03em; }
 .subtitle { margin: 8px 0 30px; color: var(--muted); }
+.subtitle-2 { margin: -10px 0px 30px; color: var(--muted); font-size: 11px; }
 .rate-control { display: grid; gap: 4px; min-width: 218px; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 .rate-field { display: flex; align-items: center; gap: 6px; color: var(--ink); font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; }
 .rate-field input { width: 80px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); background: var(--surface); font: inherit; }
@@ -164,7 +165,7 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
 .trend { fill: none; stroke: var(--blue); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .point { fill: var(--surface); stroke: var(--blue); stroke-width: 3; }
 .point:hover { fill: var(--blue); r: 6; }
-.lower { display: grid; grid-template-columns: 1.2fr .8fr; gap: 20px; margin-top: 20px; }
+.lower { margin-top: 20px; }
 .filter-row { display: grid; grid-template-columns: 1fr auto auto; gap: 18px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .filter-row:last-child { border-bottom: 0; }
 .filter-row small { color: var(--green); }
@@ -178,6 +179,7 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
     <div>
       <p class="eyebrow">Local activity</p>
       <h1>Shrinker stats</h1>
+      <p class="subtitle-2">Stats are stored on this machine: ${escapeHtml(summary.databasePath)}</p>
       <p class="subtitle">Token reduction over the last 30 days</p>
     </div>
     <label class="rate-control" for="input-cost-rate">Input price
@@ -195,7 +197,6 @@ svg { display: block; width: 100%; min-width: 620px; height: auto; }
   <section class="panel chart"><h2>Tokens saved over time</h2><p>Estimated savings from recorded command runs. Cost uses <span id="chart-cost-rate">${formatUsd(inputCostPerMillionTokens)}</span> per million input tokens.</p>${makeChart(summary)}</section>
   <section class="lower">
     <section class="panel"><h2>By filter</h2><p>Where the savings come from.</p>${filters}</section>
-    <section class="panel"><h2>Storage</h2><p>Stats stay on this machine.</p><p class="muted">${escapeHtml(summary.databasePath)}</p></section>
   </section>
 </main>
 <script>
@@ -257,6 +258,12 @@ export function openStatsDashboard(outputPath: string): void {
 
 export function serveStatsDashboard(getSummary: () => StatsSummary, port = 4317): Promise<void> {
   const server = createServer((request, response) => {
+    if (request.method === "POST" && request.url === "/__shrinker_shutdown") {
+      response.writeHead(204);
+      response.end(() => server.close());
+      return;
+    }
+
     if (request.url !== "/") {
       response.writeHead(404);
       response.end("Not found");
@@ -285,14 +292,29 @@ export function serveStatsDashboard(getSummary: () => StatsSummary, port = 4317)
   });
 }
 
-export async function startStatsDashboard(port = 4317): Promise<{ pid: number; reused: boolean }> {
+export async function startStatsDashboard(port = 4317, restart = false): Promise<{ pid: number; reused: boolean; restarted: boolean }> {
   const url = `http://127.0.0.1:${port}`;
+  let restarted = false;
+  if (restart) {
+    let response: Response | undefined;
+    try {
+      response = await fetch(`${url}/__shrinker_shutdown`, {
+        method: "POST",
+        signal: AbortSignal.timeout(500),
+      });
+    } catch {}
+    if (response && !response.ok) {
+      throw new Error(`Could not restart dashboard server at ${url}`);
+    }
+    restarted = response?.ok ?? false;
+  }
+
   try {
     const response = await fetch(url, { signal: AbortSignal.timeout(500) });
     const body = await response.text();
     if (response.ok && body.includes("Shrinker stats")) {
       openStatsDashboard(url);
-      return { pid: 0, reused: true };
+      return { pid: 0, reused: true, restarted: false };
     }
   } catch {}
 
@@ -302,5 +324,5 @@ export async function startStatsDashboard(port = 4317): Promise<{ pid: number; r
     { detached: true, stdio: "ignore" },
   );
   child.unref();
-  return { pid: child.pid ?? 0, reused: false };
+  return { pid: child.pid ?? 0, reused: false, restarted };
 }

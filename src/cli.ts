@@ -21,6 +21,7 @@ interface CliOptions {
   chart: boolean;
   dashboard: boolean;
   dashboardServer: boolean;
+  dashboardRestart: boolean;
   dashboardPort: number;
   showPath: boolean;
   captureId?: string;
@@ -34,7 +35,7 @@ function usage(): string {
   shrinker <command> [args...]
   shrinker exec [options] [--] <command> [args...]
   shrinker pipe [options]
-  shrinker stats [--json] [--chart] [--dashboard] [--port <number>]
+  shrinker stats [--json] [--chart] [--dashboard] [--restart] [--port <number>]
   shrinker last [--path]
   shrinker raw <capture-id> [--path]
   shrinker help
@@ -48,6 +49,7 @@ Options:
   --no-save                  do not save omitted raw output
   --no-stats                 do not record this run
   --dashboard                serve and open the local dashboard at http://127.0.0.1:4317
+  --restart                  restart the local dashboard server
   --port <number>            dashboard server port (default: 4317)
   --help`;
 }
@@ -88,6 +90,7 @@ function parseArgs(args: string[]): CliOptions {
   let chart = false;
   let dashboard = false;
   let dashboardServer = false;
+  let dashboardRestart = false;
   let dashboardPort = 4317;
   let showPath = false;
   let captureId: string | undefined;
@@ -108,6 +111,7 @@ function parseArgs(args: string[]): CliOptions {
     else if (option === "--chart" && mode === "stats") chart = true;
     else if (option === "--dashboard" && mode === "stats") dashboard = true;
     else if (option === "--dashboard-server" && mode === "stats") dashboardServer = true;
+    else if (option === "--restart" && mode === "stats") dashboardRestart = true;
     else if (option === "--port" && mode === "stats") dashboardPort = parsePositiveInteger(args.shift(), "--port");
     else if (option === "--path" && mode === "last") showPath = true;
     else if (option === "--path" && mode === "raw-output") showPath = true;
@@ -154,6 +158,7 @@ function parseArgs(args: string[]): CliOptions {
   if (args[0] === "--") args.shift();
   if (mode === "exec" && args.length === 0) throw new Error("exec requires a command");
   if (mode === "stats" && args.length > 0) throw new Error("stats does not accept command arguments");
+  if (dashboardRestart && !dashboard) throw new Error("--restart requires stats --dashboard");
   if (mode === "last" && args.length > 0) throw new Error("last does not accept command arguments");
   if (mode === "raw-output" && !captureId) throw new Error("raw requires a capture ID");
 
@@ -168,6 +173,7 @@ function parseArgs(args: string[]): CliOptions {
     chart,
     dashboard,
     dashboardServer,
+    dashboardRestart,
     dashboardPort,
     showPath,
     ...(captureId ? { captureId } : {}),
@@ -260,9 +266,11 @@ async function main(): Promise<void> {
       if (options.dashboardServer) {
         await serveStatsDashboard(() => getStats(defaultStatsPath()), options.dashboardPort);
       } else {
-        const dashboard = await startStatsDashboard(options.dashboardPort);
+        const dashboard = await startStatsDashboard(options.dashboardPort, options.dashboardRestart);
         if (dashboard.reused) {
           process.stdout.write(`Dashboard server already running at http://127.0.0.1:${options.dashboardPort}\n`);
+        } else if (dashboard.restarted) {
+          process.stdout.write(`Dashboard server restarted at http://127.0.0.1:${options.dashboardPort} (PID ${dashboard.pid})\n`);
         } else {
           process.stdout.write(`Dashboard server started at http://127.0.0.1:${options.dashboardPort} (PID ${dashboard.pid})\n`);
         }

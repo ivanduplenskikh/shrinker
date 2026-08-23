@@ -258,5 +258,14 @@ test("CLI help is a successful reserved command", () => {
     assert.match(result.stdout, /shrinker last/);
     assert.match(result.stdout, /shrinker raw/);
     assert.match(result.stdout, /--metrics/);
+    assert.match(result.stdout, /--restart/);
   }
+});
+
+test("CLI rejects dashboard restart without the dashboard option", () => {
+  const cli = path.join(process.cwd(), "dist", "src", "cli.js");
+  const result = spawnSync(process.execPath, [cli, "stats", "--restart"], { encoding: "utf8" });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /--restart requires stats --dashboard/);
 });
