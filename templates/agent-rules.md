@@ -1,4 +1,3 @@
-<!-- >>> shrink agent rules >>> -->
 Use `shrink` for high-volume terminal outputs to reduce tokens.
 
 Routing policy:
@@ -12,10 +11,9 @@ Routing policy:
 Bypass shrink when:
 - command modifies remote state and output volume is already tiny
 - command requires interactive stdin
-- command explicitly needs raw full output (or use `shrink --raw ...`)
+- command explicitly needs `shrink --raw`
 
 Examples:
 - `shrink git log -n 20`
 - `shrink rg "pattern" src`
 - `shrink docker logs api --tail 500`
-<!-- <<< shrink agent rules <<< -->

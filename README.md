@@ -59,6 +59,8 @@ This writes managed guidance blocks to:
 - `.copilot-instructions.md`
 - `CLAUDE.md`
 
+The shared guidance source is `templates/agent-rules.md`; the two files above are generated in the target project.
+
 The rules tell agents to prefer `shrink <command>` for high-volume commands while leaving native commands untouched.
 
 ### Remote uninstall (raw GitHub)

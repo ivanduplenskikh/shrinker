@@ -6,30 +6,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$blockStart = "<!-- >>> shrink agent rules >>> -->"
-$blockEnd = "<!-- <<< shrink agent rules <<< -->"
+$blockStart = "<!-- shrinker agent rules start -->"
+$blockEnd = "<!-- shrinker agent rules end -->"
+$templatePath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "..\templates\agent-rules.md"
+if (-not (Test-Path $templatePath)) {
+    throw "Agent rules template not found: $templatePath"
+}
 
-$rulesBody = @'
-Use `shrink` for high-volume terminal outputs to reduce tokens.
-
-Routing policy:
-- `git status|diff|log|show|reflog|branch|tag|stash` -> `shrink git ...`
-- `npm test|t|install|i|ci|ls|list` -> `shrink npm ...`
-- `docker ps|logs|images|compose` -> `shrink docker ...`
-- `kubectl get|describe|logs` -> `shrink kubectl ...`
-- `gh pr|issue|run` -> `shrink gh ...`
-- `rg`, `find`, `tail`, `cat`, `ls`, `dir` -> `shrink <command> ...`
-
-Bypass shrink when:
-- command modifies remote state and output volume is already tiny
-- command requires interactive stdin
-- command explicitly needs raw full output (or use `shrink --raw ...`)
-
-Examples:
-- `shrink git log -n 20`
-- `shrink rg "pattern" src`
-- `shrink docker logs api --tail 500`
-'@
+$rulesBody = Get-Content -Path $templatePath -Raw
 
 function Set-ManagedBlock {
     param(
