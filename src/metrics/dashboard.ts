@@ -78,6 +78,7 @@ export function writeStatsDashboard(summary: StatsSummary, outputPath = defaultD
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shrinker stats dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232774d9'/%3E%3Cpath d='M16 18h32L38 30H26zM24 34h16l-5 8h-6zM29 46h6v5h-6z' fill='white'/%3E%3C/svg%3E">
 <style>
 :root { color-scheme: light; --ink: #17202a; --muted: #66727f; --line: #dce3e8; --blue: #2774d9; --blue-soft: #eaf2ff; --green: #16856b; --surface: #ffffff; --background: #f4f7fa; }
 * { box-sizing: border-box; }

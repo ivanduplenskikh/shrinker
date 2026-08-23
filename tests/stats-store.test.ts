@@ -66,6 +66,8 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
   const dashboard = await import("node:fs/promises").then(({ readFile }) => readFile(dashboardPath, "utf8"));
   assert.match(dashboard, /Tokens saved over time/);
   assert.match(dashboard, /git-log/);
+  assert.match(dashboard, /rel="icon"/);
+  assert.match(dashboard, /data:image\/svg\+xml/);
 });
 
 test("an empty stats database returns zero totals", async (context) => {
