@@ -4,6 +4,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { FilterKind } from "../filters/types.js";
 import type { Measurements } from "./measure.js";
+import { writeStatsDashboard } from "./dashboard.js";
 
 export interface RunStatistic {
   mode: "exec" | "pipe";
@@ -107,6 +108,10 @@ export function recordRun(statistic: RunStatistic, databasePath = defaultStatsPa
   } finally {
     database.close();
   }
+
+  try {
+    writeStatsDashboard(getStats(databasePath));
+  } catch {}
 }
 
 function toStatsRow(row: AggregateRow, filterKind = "all"): StatsRow {

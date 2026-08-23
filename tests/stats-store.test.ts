@@ -36,6 +36,8 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
   );
 
   const summary = getStats(databasePath);
+  const dashboardFile = await import("node:fs/promises").then(({ access }) => access(path.join(directory, "dashboard.html")));
+  assert.equal(dashboardFile, undefined);
   assert.equal(summary.total.runs, 2);
   assert.equal(summary.total.rawEstimatedTokens, 150);
   assert.equal(summary.total.outputEstimatedTokens, 50);
