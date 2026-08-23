@@ -69,7 +69,7 @@ if (-not $Local) {
     & pwsh -ExecutionPolicy Bypass -File $entrypoint -Local -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting:$EnableProfileRouting -SkipProfile:$SkipProfile -SkipAgentRules:$SkipAgentRules -CopilotOnly:$CopilotOnly -ClaudeOnly:$ClaudeOnly -ProfilePath $ProfilePath
     if ($LASTEXITCODE -ne 0) { throw "Repository installer failed with exit code $LASTEXITCODE" }
     Write-InstallStep "✅" "Install complete."
-    exit 0
+    return
 }
 
 $scriptDir = $PSScriptRoot

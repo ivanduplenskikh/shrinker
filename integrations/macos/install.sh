@@ -61,6 +61,9 @@ if (( LOCAL == 0 )); then
     $( (( COPILOT_ONLY )) && echo --copilot-only ) \
     $( (( CLAUDE_ONLY )) && echo --claude-only ) \
     --profile-path "$PROFILE_PATH"
+  if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
+    return 0
+  fi
   exit 0
 fi
 
