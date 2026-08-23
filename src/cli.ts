@@ -7,7 +7,8 @@ import { runCommand } from "./execution/run-command.js";
 import { getLatestRawOutput, getRawOutput, saveRawOutput } from "./execution/raw-output-store.js";
 import { cleanText } from "./formatting/ansi.js";
 import { formatMeasurements, measure } from "./metrics/measure.js";
-import { defaultStatsPath, formatStats, getStats, recordRun } from "./metrics/stats-store.js";
+import { openStatsDashboard, writeStatsDashboard } from "./metrics/dashboard.js";
+import { defaultStatsPath, formatStats, formatStatsChart, getStats, recordRun } from "./metrics/stats-store.js";
 
 interface CliOptions {
   mode: "exec" | "pipe" | "stats" | "last" | "raw-output" | "help";
@@ -17,6 +18,8 @@ interface CliOptions {
   trackStats: boolean;
   showMetrics: boolean;
   json: boolean;
+  chart: boolean;
+  dashboard: boolean;
   showPath: boolean;
   captureId?: string;
   maxLines: number;
@@ -29,7 +32,7 @@ function usage(): string {
   shrink <command> [args...]
   shrink exec [options] [--] <command> [args...]
   shrink pipe [options]
-  shrink stats [--json]
+  shrink stats [--json] [--chart] [--dashboard]
   shrink last [--path]
   shrink raw <capture-id> [--path]
   shrink help
@@ -42,6 +45,7 @@ Options:
   --metrics                  print per-run savings and duration
   --no-save                  do not save omitted raw output
   --no-stats                 do not record this run
+  --dashboard                write a browser dashboard to ~/.shrink/dashboard.html
   --help`;
 }
 
@@ -78,6 +82,8 @@ function parseArgs(args: string[]): CliOptions {
   let trackStats = true;
   let showMetrics = false;
   let json = false;
+  let chart = false;
+  let dashboard = false;
   let showPath = false;
   let captureId: string | undefined;
   let maxLines = 120;
@@ -94,6 +100,8 @@ function parseArgs(args: string[]): CliOptions {
     else if (option === "--no-save") save = false;
     else if (option === "--no-stats") trackStats = false;
     else if (option === "--json" && mode === "stats") json = true;
+    else if (option === "--chart" && mode === "stats") chart = true;
+    else if (option === "--dashboard" && mode === "stats") dashboard = true;
     else if (option === "--path" && mode === "last") showPath = true;
     else if (option === "--path" && mode === "raw-output") showPath = true;
     else if (mode === "raw-output" && option && !option.startsWith("-") && !captureId) {
@@ -150,6 +158,8 @@ function parseArgs(args: string[]): CliOptions {
     trackStats,
     showMetrics,
     json,
+    chart,
+    dashboard,
     showPath,
     ...(captureId ? { captureId } : {}),
     maxLines,
@@ -237,7 +247,14 @@ async function main(): Promise<void> {
 
   if (options.mode === "stats") {
     const summary = getStats(defaultStatsPath());
-    process.stdout.write(`${options.json ? JSON.stringify(summary, null, 2) : formatStats(summary)}\n`);
+    if (options.dashboard) {
+      const dashboardPath = writeStatsDashboard(summary);
+      process.stdout.write(`Dashboard written to: ${dashboardPath}\n`);
+      openStatsDashboard(dashboardPath);
+      return;
+    }
+    const output = options.json ? JSON.stringify(summary, null, 2) : options.chart ? formatStatsChart(summary) : formatStats(summary);
+    process.stdout.write(`${output}\n`);
     return;
   }
 

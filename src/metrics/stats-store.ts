@@ -29,6 +29,14 @@ export interface StatsSummary {
   total: StatsRow;
   last7Days: StatsRow;
   byFilter: StatsRow[];
+  daily: DailyStatsRow[];
+}
+
+export interface DailyStatsRow {
+  date: string;
+  runs: number;
+  estimatedTokensSaved: number;
+  reductionPercent: number;
 }
 
 interface AggregateRow {
@@ -138,12 +146,27 @@ export function getStats(databasePath = defaultStatsPath()): StatsSummary {
         ORDER BY tokens_saved DESC, filter_kind ASC
       `)
       .all() as unknown as AggregateRow[];
+    const daily = database
+      .prepare(`
+        SELECT substr(created_at, 1, 10) AS date, ${AGGREGATE}
+        FROM runs
+        WHERE created_at >= datetime('now', '-30 days')
+        GROUP BY substr(created_at, 1, 10)
+        ORDER BY date ASC
+      `)
+      .all() as unknown as (AggregateRow & { date: string | null })[];
 
     return {
       databasePath,
       total: toStatsRow(total),
       last7Days: toStatsRow(last7Days),
       byFilter: byFilter.map((row) => toStatsRow(row, row.filter_kind ?? "unknown")),
+      daily: daily.map((row) => ({
+        date: row.date ?? "unknown",
+        runs: Number(row.runs ?? 0),
+        estimatedTokensSaved: Number(row.tokens_saved ?? 0),
+        reductionPercent: toStatsRow(row).reductionPercent,
+      })),
     };
   } finally {
     database.close();
@@ -195,5 +218,24 @@ export function formatStats(summary: StatsSummary): string {
   }
 
   lines.push("", "Storage", `  Database: ${summary.databasePath}`);
+  return lines.join("\n");
+}
+
+export function formatStatsChart(summary: StatsSummary): string {
+  const lines = ["Shrink Token Savings - Last 30 Days", "====================================="];
+  if (summary.daily.length === 0) {
+    lines.push("No recorded runs in the last 30 days.");
+    return lines.join("\n");
+  }
+
+  const maxSaved = Math.max(...summary.daily.map((row) => row.estimatedTokensSaved));
+  lines.push("Date         Runs   Saved   Reduction  Activity");
+  lines.push("----------  -----  ------  ---------  ------------------------------");
+  for (const row of summary.daily) {
+    const bar = makeBar(row.estimatedTokensSaved, maxSaved, 30);
+    lines.push(
+      `${row.date.padEnd(10)}  ${formatInteger(row.runs).padStart(5)}  ${formatInteger(row.estimatedTokensSaved).padStart(6)}  ${formatPercent(row.reductionPercent).padStart(9)}  ${bar}`,
+    );
+  }
   return lines.join("\n");
 }

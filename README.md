@@ -173,9 +173,14 @@ Filtered runs are recorded locally in `~/.shrink/stats.db`. The database stores 
 ```powershell
 node dist\src\cli.js stats
 node dist\src\cli.js stats --json
+node dist\src\cli.js stats --chart
+node dist\src\cli.js stats --dashboard
 ```
 
 The summary shows all-time and last-seven-day savings plus a breakdown by filter. Use `--no-stats` before `--` to opt out for an individual run:
+
+`stats --chart` shows daily runs, estimated tokens saved, reduction percentage, and an activity bar for the last 30 days.
+`stats --dashboard` writes a self-contained browser dashboard to `~/.shrink/dashboard.html` with a line chart and filter breakdown.
 
 ```powershell
 node dist\src\cli.js exec --no-stats -- git log -n 10
