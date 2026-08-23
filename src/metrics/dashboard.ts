@@ -1,8 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import path from "node:path";
+import { promisify } from "node:util";
 import { getInputCostPerMillionTokens, type DailyStatsRow, type StatsSummary } from "./stats-store.js";
+
+const execFileAsync = promisify(execFile);
 
 function escapeHtml(value: string): string {
   return value
@@ -292,6 +295,52 @@ export function serveStatsDashboard(getSummary: () => StatsSummary, port = 4317)
   });
 }
 
+async function isShrinkerDashboard(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(500) });
+    return response.ok && (await response.text()).includes("Shrinker stats");
+  } catch {
+    return false;
+  }
+}
+
+async function findListeningProcessId(port: number): Promise<number | undefined> {
+  try {
+    if (process.platform === "win32") {
+      const { stdout } = await execFileAsync("netstat", ["-ano", "-p", "tcp"]);
+      const match = stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim().split(/\s+/))
+        .find((columns) => columns[1]?.endsWith(`:${port}`) && columns[3] === "LISTENING");
+      const processId = Number(match?.[4]);
+      return Number.isInteger(processId) && processId > 0 ? processId : undefined;
+    }
+
+    const { stdout } = await execFileAsync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"]);
+    const processId = Number(stdout.trim().split(/\s+/)[0]);
+    return Number.isInteger(processId) && processId > 0 ? processId : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function stopLegacyDashboardServer(port: number, url: string): Promise<boolean> {
+  if (!(await isShrinkerDashboard(url))) return false;
+  const processId = await findListeningProcessId(port);
+  if (!processId) return false;
+
+  try {
+    if (process.platform === "win32") {
+      await execFileAsync("taskkill", ["/PID", String(processId), "/F"]);
+    } else {
+      process.kill(processId, "SIGTERM");
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function startStatsDashboard(port = 4317, restart = false): Promise<{ pid: number; reused: boolean; restarted: boolean }> {
   const url = `http://127.0.0.1:${port}`;
   let restarted = false;
@@ -304,19 +353,17 @@ export async function startStatsDashboard(port = 4317, restart = false): Promise
       });
     } catch {}
     if (response && !response.ok) {
-      throw new Error(`Could not restart dashboard server at ${url}`);
+      restarted = await stopLegacyDashboardServer(port, url);
+      if (!restarted) throw new Error(`Could not restart dashboard server at ${url}`);
+    } else {
+      restarted = response?.ok ?? false;
     }
-    restarted = response?.ok ?? false;
   }
 
-  try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(500) });
-    const body = await response.text();
-    if (response.ok && body.includes("Shrinker stats")) {
-      openStatsDashboard(url);
-      return { pid: 0, reused: true, restarted: false };
-    }
-  } catch {}
+  if (await isShrinkerDashboard(url)) {
+    openStatsDashboard(url);
+    return { pid: 0, reused: true, restarted: false };
+  }
 
   const child = spawn(
     process.execPath,
