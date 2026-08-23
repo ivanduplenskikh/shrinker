@@ -20,9 +20,9 @@ function quoteForCmd(argument: string): string {
 async function resolveWindowsCommand(command: string): Promise<string> {
   if (process.platform !== "win32" || path.extname(command)) return command;
 
-  const pathEntries = (process.env.PATH ?? "").split(path.delimiter);
+  const pathEntries = (process.env['PATH'] ?? "").split(path.delimiter);
   const executableExtensions = new Set([".com", ".exe", ".bat", ".cmd"]);
-  const extensions = (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD")
+  const extensions = (process.env['PATHEXT'] ?? ".COM;.EXE;.BAT;.CMD")
     .split(";")
     .map((extension) => extension.trim().toLowerCase())
     .filter((extension) => executableExtensions.has(extension));

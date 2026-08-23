@@ -53,7 +53,7 @@ interface AggregateRow {
 const DEFAULT_INPUT_COST_PER_MILLION_TOKENS = 5;
 
 function inputCostPerMillionTokens(): number {
-  const configured = Number(process.env.SHRINKER_INPUT_COST_PER_MILLION_TOKENS);
+  const configured = Number(process.env['SHRINKER_INPUT_COST_PER_MILLION_TOKENS']);
   return Number.isFinite(configured) && configured >= 0
     ? configured
     : DEFAULT_INPUT_COST_PER_MILLION_TOKENS;
