@@ -3,11 +3,15 @@ param(
     [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
     [switch]$ClaudeOnly,
-    [string]$ProfilePath = $PROFILE
+    [switch]$PurgeData,
+    [int]$Port = 4317,
+    [string]$ProfilePath = $PROFILE,
+    [string]$ConfigPath = $(if ($env:SHRINKER_CONFIG_PATH) { $env:SHRINKER_CONFIG_PATH } else { Join-Path $HOME ".shrinker/config" })
 )
 
 $ErrorActionPreference = "Stop"
 $UninstallStep = 0
+$DataDir = Split-Path -Parent $ConfigPath
 
 function Write-UninstallStep {
     param([string]$Emoji, [string]$Message)
@@ -41,6 +45,33 @@ function Remove-ProfileIntegration {
     }
 }
 
+# The dashboard runs as a detached daemon, so unlinking the package never stops it.
+function Stop-DashboardServer {
+    param([int]$DashboardPort)
+    try {
+        Invoke-WebRequest -Uri "http://127.0.0.1:$DashboardPort/__shrinker_shutdown" -Method Post -TimeoutSec 3 -UseBasicParsing | Out-Null
+        Start-Sleep -Seconds 1
+    }
+    catch { }
+
+    try {
+        $listener = Get-NetTCPConnection -LocalPort $DashboardPort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($listener) { Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue }
+    }
+    catch { }
+}
+
+# Only drop installer-managed keys so hand-written settings survive.
+function Remove-ManagedConfig {
+    if (-not (Test-Path -LiteralPath $ConfigPath)) { return }
+    $remaining = @(Get-Content -LiteralPath $ConfigPath | Where-Object { $_ -notmatch '^\s*SHRINKER_TRACK_UNCOVERED\s*=' })
+    if ($remaining.Count -gt 0) { Set-Content -LiteralPath $ConfigPath -Value $remaining -Encoding utf8 }
+    else { Remove-Item -LiteralPath $ConfigPath -Force -ErrorAction SilentlyContinue }
+}
+
+Write-UninstallStep "🛑" "Stopping the dashboard server on port $Port..."
+Stop-DashboardServer $Port
+
 if (-not $SkipUnlink) {
     Write-UninstallStep "🔗" "Unlinking shrinker globally..."
     & npm unlink --silent --global shrinker-ai
@@ -54,4 +85,17 @@ if (-not $SkipAgentRules) {
     if (-not $CopilotOnly) { Remove-AgentRules (Join-Path $HOME ".claude\CLAUDE.md") }
 }
 else { Write-UninstallStep "⏭️" "Skipped managed agent rules." }
+
+Write-UninstallStep "🔧" "Removing managed settings..."
+Remove-ManagedConfig
+Remove-Item -LiteralPath (Join-Path $DataDir "dashboard.html") -Force -ErrorAction SilentlyContinue
+
+if ($PurgeData) {
+    Remove-Item -LiteralPath $DataDir -Recurse -Force -ErrorAction SilentlyContinue
+    Write-UninstallStep "🧹" "Removed local data: $DataDir"
+}
+elseif (Test-Path -LiteralPath $DataDir) {
+    Write-UninstallStep "💾" "Kept saved stats in $DataDir (use -PurgeData to delete)."
+}
+
 Write-UninstallStep "✅" "Uninstall complete."

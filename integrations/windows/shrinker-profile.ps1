@@ -95,8 +95,21 @@ function Get-ShrinkCommandPath {
     return [string]($candidates | Select-Object -First 1).Source
 }
 
+# Resolved once at load so wrapped commands never pay for reading the config file.
+$script:ShrinkTrackUncoveredDefault = ""
+$script:ShrinkConfigPath = if ($env:SHRINKER_CONFIG_PATH) { $env:SHRINKER_CONFIG_PATH } else { Join-Path $HOME ".shrinker/config" }
+if (Test-Path -LiteralPath $script:ShrinkConfigPath) {
+    foreach ($line in Get-Content -LiteralPath $script:ShrinkConfigPath) {
+        $stripped = ($line -split "#", 2)[0].Trim()
+        if ($stripped -match '^\s*SHRINKER_TRACK_UNCOVERED\s*=\s*(.*)$') {
+            $script:ShrinkTrackUncoveredDefault = $Matches[1].Trim()
+        }
+    }
+}
+
 function Test-ShrinkTrackingEnabled {
     $value = [string]$env:SHRINKER_TRACK_UNCOVERED
+    if (-not $value) { $value = $script:ShrinkTrackUncoveredDefault }
     if (-not $value) { return $false }
     return @("1", "true", "yes") -contains $value.Trim().ToLowerInvariant()
 }

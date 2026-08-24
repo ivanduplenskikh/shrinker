@@ -62,7 +62,7 @@ export function App({ payload }: { payload: DashboardPayload }) {
           empty={
             summary.uncoveredTrackingEnabled
               ? "No uncovered commands recorded yet."
-              : "Tracking is off. Set SHRINKER_TRACK_UNCOVERED=1 to start collecting."
+              : "Tracking is off. Add SHRINKER_TRACK_UNCOVERED=1 to ~/.shrinker/config to start collecting."
           }
           rows={summary.uncovered.slice(0, 12).map((row) => ({
             key: row.command,

@@ -445,7 +445,7 @@ export function formatCoverage(summary: StatsSummary): string {
     "======================",
     summary.uncoveredTrackingEnabled
       ? "Tracking: enabled (SHRINKER_TRACK_UNCOVERED)"
-      : "Tracking: disabled - run `export SHRINKER_TRACK_UNCOVERED=1` to start collecting.",
+      : "Tracking: disabled - add `SHRINKER_TRACK_UNCOVERED=1` to ~/.shrinker/config to start collecting.",
   ];
 
   if (summary.uncovered.length === 0) {

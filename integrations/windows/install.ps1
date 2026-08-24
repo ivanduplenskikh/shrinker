@@ -11,7 +11,10 @@ param(
     [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
     [switch]$ClaudeOnly,
+    [switch]$EnableUncoveredTracking,
+    [switch]$DisableUncoveredTracking,
     [string]$ProfilePath = $PROFILE,
+    [string]$ConfigPath = $(if ($env:SHRINKER_CONFIG_PATH) { $env:SHRINKER_CONFIG_PATH } else { Join-Path $HOME ".shrinker/config" }),
     [int]$StepOffset = 0
 )
 
@@ -26,6 +29,47 @@ function Write-InstallStep {
 
 if ($EnableProfileRouting -and $SkipProfile) { throw "Use either -EnableProfileRouting or -SkipProfile, not both." }
 if ($CopilotOnly -and $ClaudeOnly) { throw "Use either -CopilotOnly or -ClaudeOnly, not both." }
+if ($EnableUncoveredTracking -and $DisableUncoveredTracking) { throw "Use either -EnableUncoveredTracking or -DisableUncoveredTracking, not both." }
+
+# Prompt only on a real console; non-interactive installs keep tracking on and leave the profile alone.
+$IsInteractive = -not [System.Console]::IsInputRedirected -and $Host.UI.RawUI -ne $null
+
+function Read-YesNo {
+    param([string]$Question, [bool]$Default)
+    $hint = if ($Default) { "[Y/n]" } else { "[y/N]" }
+    $reply = (Read-Host "   $Question $hint").Trim().ToLowerInvariant()
+    switch ($reply) {
+        { $_ -in @("y", "yes") } { return $true }
+        { $_ -in @("n", "no") } { return $false }
+        default { return $Default }
+    }
+}
+
+if ($EnableUncoveredTracking) { $TrackUncovered = $true }
+elseif ($DisableUncoveredTracking) { $TrackUncovered = $false }
+elseif ($IsInteractive) {
+    Write-InstallStep "❓" "Track uncovered commands? Records which unfiltered commands cost the most tokens."
+    $TrackUncovered = Read-YesNo "Enable uncovered-command tracking?" $true
+}
+else { $TrackUncovered = $true }
+
+if ($IsInteractive -and -not $SkipProfile -and -not $EnableProfileRouting) {
+    Write-InstallStep "❓" "Route wrapped commands through shrinker automatically? Adds a line to $ProfilePath."
+    $EnableProfileRouting = Read-YesNo "Enable automatic shell routing?" $false
+}
+
+function Set-ConfigValue {
+    param([string]$Key, [string]$Value)
+    $directory = Split-Path -Parent $ConfigPath
+    if ($directory -and -not (Test-Path -LiteralPath $directory)) { New-Item -ItemType Directory -Force -Path $directory | Out-Null }
+    $lines = @()
+    if (Test-Path -LiteralPath $ConfigPath) {
+        $lines = @(Get-Content -LiteralPath $ConfigPath | Where-Object { $_ -notmatch "^\s*$Key\s*=" })
+    }
+    $lines += "$Key=$Value"
+    Set-Content -LiteralPath $ConfigPath -Value $lines -Encoding utf8
+    Write-InstallStep "⚙️" "Set $Key=$Value in: $ConfigPath"
+}
 
 function Set-AgentRules {
     param([string]$Body)
@@ -67,7 +111,7 @@ if (-not $Local) {
     $entrypoint = Join-Path $packageRoot "integrations\windows\install.ps1"
     if (-not (Test-Path $entrypoint)) { throw "Installed package installer not found: $entrypoint" }
     Write-InstallStep "⚙️" "Configuring the installed package..."
-    & pwsh -ExecutionPolicy Bypass -File $entrypoint -Local -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting:$EnableProfileRouting -SkipProfile:$SkipProfile -SkipAgentRules:$SkipAgentRules -CopilotOnly:$CopilotOnly -ClaudeOnly:$ClaudeOnly -ProfilePath $ProfilePath -StepOffset $InstallStep
+    & pwsh -ExecutionPolicy Bypass -File $entrypoint -Local -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting:$EnableProfileRouting -SkipProfile:$SkipProfile -SkipAgentRules:$SkipAgentRules -CopilotOnly:$CopilotOnly -ClaudeOnly:$ClaudeOnly -EnableUncoveredTracking:$TrackUncovered -DisableUncoveredTracking:(-not $TrackUncovered) -ProfilePath $ProfilePath -ConfigPath $ConfigPath -StepOffset $InstallStep
     if ($LASTEXITCODE -ne 0) { throw "Repository installer failed with exit code $LASTEXITCODE" }
     return
 }
@@ -106,6 +150,7 @@ try {
     }
 } finally { Pop-Location }
 
+Set-ConfigValue "SHRINKER_TRACK_UNCOVERED" $(if ($TrackUncovered) { "1" } else { "0" })
 if (-not $SkipProfile -and $EnableProfileRouting) { Add-ProfileIntegration $ProfilePath $integrationPath }
 if (-not $SkipAgentRules) { Set-AgentRules $rulesBody }
 Write-InstallStep "✅" "Install complete."

@@ -21,6 +21,25 @@ SHRINK_OPTION_VALUE_FLAGS=(
   gh "-R --repo"
 )
 
+# Resolved once at load so wrapped commands never pay for reading the config file.
+typeset -g SHRINK_TRACK_UNCOVERED_DEFAULT=""
+_shrink_load_config() {
+  local config="${SHRINKER_CONFIG_PATH:-$HOME/.shrinker/config}"
+  [[ -r "$config" ]] || return 0
+  local value
+  value="$(sed -n 's/^[[:space:]]*SHRINKER_TRACK_UNCOVERED[[:space:]]*=[[:space:]]*\([^#[:space:]]*\).*/\1/p' "$config" | tail -n 1)"
+  SHRINK_TRACK_UNCOVERED_DEFAULT="$value"
+}
+_shrink_load_config
+
+_shrink_uncovered_enabled() {
+  local value="${SHRINKER_TRACK_UNCOVERED:-$SHRINK_TRACK_UNCOVERED_DEFAULT}"
+  case "${value:l}" in
+    1|true|yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 _shrink_get_subcommand() {
   local cmd="$1"
   shift
@@ -80,7 +99,7 @@ _shrink_track_uncovered() {
   local status_code="$3"
   shift 3
 
-  [[ -z "$SHRINKER_TRACK_UNCOVERED" || "$SHRINKER_TRACK_UNCOVERED" == "0" ]] && return 0
+  _shrink_uncovered_enabled || return 0
   command -v shrinker >/dev/null 2>&1 || return 0
 
   local subcommand
@@ -97,7 +116,7 @@ _shrink_run_native_tracked() {
   local cmd="$1"
   shift
 
-  if [[ -z "$SHRINKER_TRACK_UNCOVERED" || "$SHRINKER_TRACK_UNCOVERED" == "0" ]]; then
+  if ! _shrink_uncovered_enabled; then
     command "$cmd" "$@"
     return $?
   fi

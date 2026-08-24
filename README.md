@@ -289,15 +289,26 @@ shrinker last --path
 
 Shrinker only measures what it filters. Coverage tracking answers the opposite question: **which commands does an agent run that shrinker does not cover yet?** It ranks them by the estimated tokens a dedicated filter could have seen, so the top row is the next filter worth writing.
 
-Collection is **opt-in** and off by default:
+The installer asks whether to enable it and stores the answer in `~/.shrinker/config`:
+
+```text
+SHRINKER_TRACK_UNCOVERED=1
+```
+
+Pass `--enable-uncovered-tracking` / `--disable-uncovered-tracking` (macOS) or `-EnableUncoveredTracking` / `-DisableUncoveredTracking` (Windows) to answer ahead of time. Non-interactive installs skip the prompt and enable tracking.
+
+The environment variable still wins for a single shell or command, in either direction:
 
 ```bash
-export SHRINKER_TRACK_UNCOVERED=1
+SHRINKER_TRACK_UNCOVERED=0 shrinker git status   # off for one command
+export SHRINKER_TRACK_UNCOVERED=1                # on for this shell
 ```
 
 ```powershell
 $env:SHRINKER_TRACK_UNCOVERED = "1"
 ```
+
+Both the CLI and the shell integration read `~/.shrinker/config`; the shell profile reads it once at load, so change it and restart the shell (or export the variable) to take effect immediately. Set `SHRINKER_CONFIG_PATH` to relocate the file.
 
 Two kinds of gaps are recorded:
 

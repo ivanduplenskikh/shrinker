@@ -7,7 +7,11 @@ SKIP_UNLINK=0
 SKIP_AGENT_RULES=0
 COPILOT_ONLY=0
 CLAUDE_ONLY=0
+PURGE_DATA=0
+DASHBOARD_PORT=4317
 PROFILE_PATH="${PROFILE_PATH:-$HOME/.zshrc}"
+CONFIG_PATH="${SHRINKER_CONFIG_PATH:-$HOME/.shrinker/config}"
+DATA_DIR="$(dirname "$CONFIG_PATH")"
 UNINSTALL_STEP=0
 
 print_step() {
@@ -25,6 +29,8 @@ while [[ $# -gt 0 ]]; do
     --profile-path) PROFILE_PATH="${2:-}"; shift ;;
     --install-dir) INSTALL_DIR="${2:-}"; shift ;;
     --remove-install-dir) REMOVE_INSTALL_DIR=1 ;;
+    --purge-data) PURGE_DATA=1 ;;
+    --port) DASHBOARD_PORT="${2:-}"; shift ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
   shift
@@ -48,6 +54,38 @@ remove_profile_integration() {
   mv "$profile_file.tmp" "$profile_file"
 }
 
+# The dashboard runs as a detached daemon, so unlinking the package never stops it.
+stop_dashboard_server() {
+  local url="http://127.0.0.1:$DASHBOARD_PORT"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS -m 3 -X POST "$url/__shrinker_shutdown" -o /dev/null 2>/dev/null || true
+    sleep 1
+  fi
+
+  local pid
+  pid="$(lsof -nP -iTCP:"$DASHBOARD_PORT" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true)"
+  if [[ -n "$pid" ]]; then
+    kill "$pid" 2>/dev/null || true
+    sleep 1
+    pid="$(lsof -nP -iTCP:"$DASHBOARD_PORT" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true)"
+    [[ -n "$pid" ]] && kill -9 "$pid" 2>/dev/null || true
+  fi
+}
+
+# Only drop installer-managed keys so hand-written settings survive.
+remove_managed_config() {
+  [[ -f "$CONFIG_PATH" ]] || return 0
+  grep -Ev '^[[:space:]]*SHRINKER_TRACK_UNCOVERED[[:space:]]*=' "$CONFIG_PATH" > "$CONFIG_PATH.tmp" || true
+  if [[ -s "$CONFIG_PATH.tmp" ]]; then
+    mv "$CONFIG_PATH.tmp" "$CONFIG_PATH"
+  else
+    rm -f "$CONFIG_PATH.tmp" "$CONFIG_PATH"
+  fi
+}
+
+print_step "🛑" "Stopping the dashboard server on port $DASHBOARD_PORT..."
+stop_dashboard_server
+
 if (( SKIP_UNLINK == 0 )); then
   print_step "🔗" "Unlinking shrinker globally..."
   npm unlink --silent --global shrinker-ai
@@ -62,6 +100,18 @@ if (( SKIP_AGENT_RULES == 0 )); then
 else
   print_step "⏭️" "Skipped managed agent rules."
 fi
+
+print_step "🔧" "Removing managed settings..."
+remove_managed_config
+rm -f "$DATA_DIR/dashboard.html"
+
+if (( PURGE_DATA == 1 )); then
+  rm -rf "$DATA_DIR"
+  print_step "🧹" "Removed local data: $DATA_DIR"
+elif [[ -d "$DATA_DIR" ]]; then
+  print_step "💾" "Kept saved stats in $DATA_DIR (use --purge-data to delete)."
+fi
+
 print_step "✅" "Uninstall complete."
 
 if (( REMOVE_INSTALL_DIR == 1 )) && [[ -d "$INSTALL_DIR" ]]; then

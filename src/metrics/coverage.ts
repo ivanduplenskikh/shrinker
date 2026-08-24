@@ -1,5 +1,6 @@
 import type { FilterKind } from "../filters/types.js";
 import type { Measurements } from "./measure.js";
+import { isTruthy, resolveSetting } from "../config.js";
 
 export type UncoveredSource = "wrapped" | "shell";
 export type UncoveredReason = "no-filter" | "low-reduction" | "unlisted-subcommand";
@@ -24,8 +25,7 @@ const OPTION_VALUE_FLAGS: Record<string, readonly string[]> = {
 };
 
 export function isCoverageTrackingEnabled(): boolean {
-  const configured = process.env['SHRINKER_TRACK_UNCOVERED']?.trim().toLowerCase();
-  return configured === "1" || configured === "true" || configured === "yes";
+  return isTruthy(resolveSetting("SHRINKER_TRACK_UNCOVERED"));
 }
 
 function lowReductionPercent(): number {
