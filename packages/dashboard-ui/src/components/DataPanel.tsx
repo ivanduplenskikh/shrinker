@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 
+// Shared by every panel so columns line up across all three.
+const COLUMNS = "grid grid-cols-[minmax(0,1fr)_3rem_5.5rem_4rem] items-baseline gap-3";
+
 export interface DataPanelRow {
   key: string;
   label: string;
@@ -27,10 +30,10 @@ export function DataPanel({ title, description, head, rows, empty }: DataPanelPr
         <div role="table" aria-label={title}>
           <div
             role="row"
-            className="grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-3 border-b border-[#dce3e8] pb-[11px] text-[11px] font-bold uppercase tracking-[0.08em] text-[#66727f]"
+            className={`${COLUMNS} border-b border-[#dce3e8] pb-[11px] text-[11px] font-bold uppercase tracking-[0.08em] text-[#66727f]`}
           >
-            {head.map((cell) => (
-              <span key={cell} role="columnheader">
+            {head.map((cell, index) => (
+              <span key={cell} role="columnheader" className={index === 0 ? "" : "text-right"}>
                 {cell}
               </span>
             ))}
@@ -39,18 +42,18 @@ export function DataPanel({ title, description, head, rows, empty }: DataPanelPr
             <div
               key={row.key}
               role="row"
-              className="grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-3 border-b border-[#dce3e8] py-[11px] last:border-b-0"
+              className={`${COLUMNS} border-b border-[#dce3e8] py-[11px] last:border-b-0`}
             >
               <span role="cell" className="truncate text-[#17202a]">
                 {row.label}
               </span>
-              <span role="cell" className="tabular-nums text-[#66727f]">
+              <span role="cell" className="text-right tabular-nums text-[#66727f]">
                 {row.calls}
               </span>
-              <strong role="cell" className="tabular-nums font-semibold text-[#17202a]">
+              <strong role="cell" className="text-right tabular-nums font-semibold text-[#17202a]">
                 {row.value}
               </strong>
-              <small role="cell" className="text-[#16856b]">
+              <small role="cell" className="text-right tabular-nums text-[#16856b]">
                 {row.note}
               </small>
             </div>
