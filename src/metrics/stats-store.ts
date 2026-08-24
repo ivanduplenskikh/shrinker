@@ -10,7 +10,6 @@ import {
   type UncoveredReason,
   type UncoveredSource,
 } from "./coverage.js";
-import { writeStatsDashboard } from "./dashboard.js";
 
 export interface RunStatistic {
   mode: "exec" | "pipe";
@@ -186,10 +185,6 @@ export function recordRun(statistic: RunStatistic, databasePath = defaultStatsPa
   } finally {
     database.close();
   }
-
-  try {
-    writeStatsDashboard(getStats(databasePath));
-  } catch {}
 }
 
 interface UncoveredAggregateRow {

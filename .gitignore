@@ -4,3 +4,6 @@ dist/
 coverage/
 .copilot-instructions.md
 CLAUDE.md
+
+# Baked from packages/dashboard-ui by its build step
+src/metrics/dashboard-template.generated.ts

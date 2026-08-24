@@ -253,7 +253,7 @@ The summary shows all-time and last-seven-day savings plus a breakdown by filter
 
 `stats --coverage` lists commands shrinker does not cover yet; see [Coverage gaps](#coverage-gaps).
 `stats --chart` shows daily runs, estimated tokens saved, reduction percentage, and an activity bar for the last 30 days.
-`stats --dashboard` starts the local dashboard server in the background at `http://127.0.0.1:4317` and opens it in your browser, then returns to the terminal. The page reads the latest local stats whenever it is refreshed; use `--port` to choose another port. The generated HTML is also kept at `~/.shrinker/dashboard.html`.
+`stats --dashboard` starts the local dashboard server in the background at `http://127.0.0.1:4317` and opens it in your browser, then returns to the terminal. The page reads the latest local stats whenever it is refreshed; use `--port` to choose another port. The same command also refreshes the standalone copy at `~/.shrinker/dashboard.html`, which can be opened directly without a server running.
 
 Use `stats --dashboard --restart` after rebuilding to replace an already-running dashboard server with the current code.
 
@@ -368,6 +368,27 @@ compact output + optional metrics + meaningful-omission recovery hint
 ```
 
 Filters are pure functions, so the same pipeline can later sit behind a GitHub Copilot hook or MCP server without rewriting the compression logic.
+
+### Workspace layout
+
+The repository is an npm workspace. The CLI lives at the root; the stats dashboard is a separate React + HeroUI app.
+
+```text
+.
+├── src/                        CLI (TypeScript, ESM, zero runtime dependencies)
+├── tests/                      node:test suites
+└── packages/dashboard-ui/      React + HeroUI dashboard, bundled by Vite
+```
+
+`packages/dashboard-ui` builds to a single self-contained HTML file (`vite-plugin-singlefile`), which `scripts/emit-template.mjs` then bakes into `src/metrics/dashboard-template.generated.ts`. The CLI injects the current `StatsSummary` into that template as an embedded JSON blob, so the published package still has no runtime dependencies and the dashboard works from `file://` with no server.
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev:ui` | Vite dev server with hot reload (renders empty-state data) |
+| `npm run build:ui` | Build the dashboard and regenerate the baked template |
+| `npm run build` | `build:ui`, then `tsc` |
+
+`npm run build:ui` is a prerequisite for `tsc`, because the generated template module is a compiled source file. `npm run build`, `npm test`, `npm run demo`, and `npm run pack` all chain it automatically.
 
 ## Safety and limitations
 

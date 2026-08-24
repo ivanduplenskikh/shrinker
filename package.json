@@ -6,9 +6,14 @@
   "bin": {
     "shrinker": "dist/src/cli.js"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "start": "tsc -w -p tsconfig.json",
-    "build": "tsc -p tsconfig.json",
+    "start": "npm run build:ui && tsc -w -p tsconfig.json",
+    "build:ui": "npm run build --workspace @shrinker/dashboard-ui",
+    "dev:ui": "npm run dev --workspace @shrinker/dashboard-ui",
+    "build": "npm run build:ui && tsc -p tsconfig.json",
     "pack": "npm run build --silent && npm pack",
     "test": "npm run build --silent && node --test \"dist/tests/*.test.js\"",
     "demo": "npm run build --silent && node dist/demo/run-demo.js",

@@ -4,8 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { measure } from "../src/metrics/measure.js";
-import { writeStatsDashboard } from "../src/metrics/dashboard.js";
-import { formatStats, formatStatsChart, getStats, recordRun } from "../src/metrics/stats-store.js";
+import { renderStatsDashboard, writeStatsDashboard } from "../src/metrics/dashboard.js";
+import { formatStats, formatStatsChart, getStats, recordRun, type StatsSummary } from "../src/metrics/stats-store.js";
+
+function readDashboardPayload(html: string): { summary: StatsSummary; inputCostPerMillionTokens: number } {
+  const match = /<script id="shrinker-stats" type="application\/json">([\s\S]*?)<\/script>/.exec(html);
+  assert.ok(match?.[1], "dashboard is missing the embedded stats payload");
+  return JSON.parse(match[1]) as { summary: StatsSummary; inputCostPerMillionTokens: number };
+}
 
 test("SQLite stats persist and aggregate runs by filter", async (context) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-stats-"));
@@ -36,8 +42,11 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
   );
 
   const summary = getStats(databasePath);
-  const dashboardFile = await import("node:fs/promises").then(({ access }) => access(path.join(directory, "dashboard.html")));
-  assert.equal(dashboardFile, undefined);
+  // recordRun stays off the dashboard write path; the bundle is regenerated only by `stats --dashboard`.
+  await assert.rejects(
+    import("node:fs/promises").then(({ access }) => access(path.join(directory, "dashboard.html"))),
+    { code: "ENOENT" },
+  );
   assert.equal(summary.total.runs, 2);
   assert.equal(summary.total.rawEstimatedTokens, 150);
   assert.equal(summary.total.outputEstimatedTokens, 50);
@@ -67,24 +76,18 @@ test("SQLite stats persist and aggregate runs by filter", async (context) => {
   const generatedPath = writeStatsDashboard(summary, dashboardPath);
   assert.equal(generatedPath, dashboardPath);
   const dashboard = await import("node:fs/promises").then(({ readFile }) => readFile(dashboardPath, "utf8"));
-  assert.match(dashboard, /Tokens saved over time/);
-  assert.match(dashboard, /Savings activity/);
-  assert.match(dashboard, /heatmap-grid/);
-  assert.match(dashboard, /grid-template-columns: repeat\(53, minmax\(12px, 1fr\)\)/);
-  assert.match(dashboard, /aspect-ratio: 53 \/ 7/);
-  assert.match(dashboard, /Daily estimated token savings over the last 365 days/);
-  assert.match(dashboard, /estimated tokens saved/);
-  assert.match(dashboard, /Stats are stored on this machine:/);
-  assert.doesNotMatch(dashboard, /<h2>Storage<\/h2>/);
-  assert.match(dashboard, /Estimated API cost saved/);
-  assert.match(dashboard, /Average saved per run/);
-  assert.match(dashboard, /id="chart-cost-rate">\$5\.00<\/span> per million input tokens/);
-  assert.match(dashboard, /id="input-cost-rate"/);
-  assert.match(dashboard, /storedRateValue === null \? Number\.NaN : Number\(storedRateValue\)/);
-  assert.match(dashboard, /localStorage\.setItem\(storageKey, String\(rate\)\)/);
-  assert.match(dashboard, /git-log/);
+  assert.doesNotMatch(dashboard, /__SHRINKER_STATS_JSON__/);
+  assert.match(dashboard, /name="generator" content="shrinker-dashboard"/);
   assert.match(dashboard, /rel="icon"/);
   assert.match(dashboard, /data:image\/svg\+xml/);
+
+  const payload = readDashboardPayload(dashboard);
+  assert.equal(payload.inputCostPerMillionTokens, 5);
+  assert.deepEqual(payload.summary, summary);
+  assert.deepEqual(
+    payload.summary.byFilter.map((row) => row.filterKind),
+    ["git-log", "log"],
+  );
 });
 
 test("runs are counted per command including the subcommand", async (context) => {
@@ -125,10 +128,36 @@ test("runs are counted per command including the subcommand", async (context) =>
   const dashboardPath = path.join(directory, "dashboard.html");
   writeStatsDashboard(summary, dashboardPath);
   const dashboard = await import("node:fs/promises").then(({ readFile }) => readFile(dashboardPath, "utf8"));
-  assert.match(dashboard, /<h2>Top commands<\/h2>/);
-  assert.match(dashboard, /filter-head/);
-  assert.match(dashboard, /<span>Command<\/span>/);
-  assert.match(dashboard, /<span>git status<\/span>/);
+  assert.deepEqual(
+    readDashboardPayload(dashboard).summary.byCommand.map((row) => [row.command, row.calls]),
+    [
+      ["git status", 2],
+      ["docker", 1],
+      ["git diff", 1],
+    ],
+  );
+});
+
+test("dashboard payload cannot break out of its script block", async (context) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-escape-"));
+  context.after(async () => await rm(directory, { recursive: true, force: true }));
+  const databasePath = path.join(directory, "stats.db");
+
+  recordRun(
+    {
+      mode: "exec",
+      filterKind: "git-status",
+      commandName: "</script><script>alert(1)</script>",
+      measurements: measure("x".repeat(400), "x".repeat(100)),
+      omitted: true,
+    },
+    databasePath,
+  );
+
+  const summary = getStats(databasePath);
+  const html = renderStatsDashboard(summary);
+  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
+  assert.equal(readDashboardPayload(html).summary.byCommand[0]?.command, "</script><script>alert(1)</script>");
 });
 
 test("databases created before command_subcommand still work", async (context) => {

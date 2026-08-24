@@ -2,6 +2,7 @@
 src/
 tests/
 demo/
+packages/
 .github/
 .gitignore
 .npmignore

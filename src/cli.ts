@@ -8,7 +8,7 @@ import { runCommand } from "./execution/run-command.js";
 import { getLatestRawOutput, getRawOutput, saveRawOutput } from "./execution/raw-output-store.js";
 import { cleanText } from "./formatting/ansi.js";
 import { formatMeasurements, measure } from "./metrics/measure.js";
-import { serveStatsDashboard, startStatsDashboard } from "./metrics/dashboard.js";
+import { serveStatsDashboard, startStatsDashboard, writeStatsDashboard } from "./metrics/dashboard.js";
 import { classifyWrappedRun, commandSignature, isCoverageTrackingEnabled } from "./metrics/coverage.js";
 import {
   defaultStatsPath,
@@ -342,6 +342,7 @@ async function main(): Promise<void> {
       if (options.dashboardServer) {
         await serveStatsDashboard(() => getStats(defaultStatsPath()), options.dashboardPort);
       } else {
+        writeStatsDashboard(summary);
         const dashboard = await startStatsDashboard(options.dashboardPort, options.dashboardRestart);
         if (dashboard.reused) {
           process.stdout.write(`Dashboard server already running at http://127.0.0.1:${options.dashboardPort}\n`);
