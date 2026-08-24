@@ -10,7 +10,7 @@
     "packages/*"
   ],
   "scripts": {
-    "start": "npm run dev:ui && tsc -w -p tsconfig.json",
+    "start": "npm run build --silent && npm run dev:ui",
     "build:ui": "npm run build --workspace @shrinker/dashboard-ui",
     "dev:ui": "npm run dev --workspace @shrinker/dashboard-ui",
     "build": "npm run build:ui && tsc -p tsconfig.json",
