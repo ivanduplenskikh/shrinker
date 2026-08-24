@@ -183,7 +183,7 @@ if (( SKIP_NPM_INSTALL == 0 )); then
 fi
 if (( SKIP_BUILD == 0 )); then
   print_message "🏗️" "Building shrinker..."
-  npm run build --silent
+  SHRINKER_BUILD_QUIET=1 npm run build --silent
 fi
 if (( SKIP_LINK == 0 )); then
   print_message "🔗" "Linking shrinker globally..."

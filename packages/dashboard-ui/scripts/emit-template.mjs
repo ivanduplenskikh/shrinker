@@ -21,4 +21,6 @@ export const DASHBOARD_TEMPLATE_HTML = ${JSON.stringify(builtHtml)};
 `;
 
 writeFileSync(target, contents, "utf8");
-process.stdout.write(`Wrote ${path.relative(repoRoot, target)} (${builtHtml.length} bytes of HTML)\n`);
+if (!process.env.SHRINKER_BUILD_QUIET) {
+  process.stdout.write(`Wrote ${path.relative(repoRoot, target)} (${builtHtml.length} bytes of HTML)\n`);
+}

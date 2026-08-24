@@ -6,6 +6,8 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 export default defineConfig({
   plugins: [react(), tailwindcss(), viteSingleFile()],
   base: "./",
+  // Installers set this; warnings and errors still surface.
+  logLevel: process.env['SHRINKER_BUILD_QUIET'] ? "warn" : "info",
   build: {
     target: "es2022",
     outDir: "dist",

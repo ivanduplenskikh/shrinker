@@ -140,7 +140,10 @@ try {
     }
     if (-not $SkipBuild) {
         Write-InstallStep "🏗️" "Building shrinker..."
-        & npm run build --silent
+        $previousQuiet = $env:SHRINKER_BUILD_QUIET
+        $env:SHRINKER_BUILD_QUIET = "1"
+        try { & npm run build --silent }
+        finally { $env:SHRINKER_BUILD_QUIET = $previousQuiet }
         if ($LASTEXITCODE -ne 0) { throw "npm run build failed." }
     }
     if (-not $SkipLink) {
