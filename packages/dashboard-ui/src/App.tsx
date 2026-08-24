@@ -34,31 +34,33 @@ export function App({ payload }: { payload: DashboardPayload }) {
         <DataPanel
           title="By filter"
           description="Where the savings come from."
-          head={["Filter", "Tokens saved", "Reduction"]}
+          head={["Filter", "Calls", "Tokens saved", "Reduction"]}
           empty="No filter data yet."
           rows={summary.byFilter.map((row) => ({
             key: row.filterKind,
             label: row.filterKind,
+            calls: formatInteger(row.runs),
             value: formatInteger(row.estimatedTokensSaved),
-            note: `${row.reductionPercent}% reduction`,
+            note: `${row.reductionPercent}%`,
           }))}
         />
         <DataPanel
           title="Top commands"
           description="Wrapped commands ranked by number of calls."
-          head={["Command", "Calls", "Tokens saved"]}
+          head={["Command", "Calls", "Tokens saved", "Reduction"]}
           empty="No command data yet."
           rows={summary.byCommand.slice(0, 12).map((row) => ({
             key: row.command,
             label: row.command,
-            value: formatInteger(row.calls),
-            note: `${formatInteger(row.estimatedTokensSaved)} saved`,
+            calls: formatInteger(row.calls),
+            value: formatInteger(row.estimatedTokensSaved),
+            note: `${row.reductionPercent}%`,
           }))}
         />
         <DataPanel
           title="Coverage gaps"
           description="Uncovered commands ranked by estimated tokens a dedicated filter could see."
-          head={["Command", "Est. tokens", "Calls"]}
+          head={["Command", "Calls", "Est. tokens", "Avg"]}
           empty={
             summary.uncoveredTrackingEnabled
               ? "No uncovered commands recorded yet."
@@ -67,8 +69,9 @@ export function App({ payload }: { payload: DashboardPayload }) {
           rows={summary.uncovered.slice(0, 12).map((row) => ({
             key: row.command,
             label: row.command,
+            calls: formatInteger(row.occurrences),
             value: formatInteger(row.estimatedTokens),
-            note: `${formatInteger(row.occurrences)} ${row.occurrences === 1 ? "call" : "calls"}`,
+            note: formatInteger(row.averageTokens),
           }))}
         />
       </div>

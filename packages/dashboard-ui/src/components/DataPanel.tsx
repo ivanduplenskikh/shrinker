@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 export interface DataPanelRow {
   key: string;
   label: string;
+  calls: string;
   value: string;
   note: string;
 }
@@ -10,7 +11,7 @@ export interface DataPanelRow {
 interface DataPanelProps {
   title: string;
   description: string;
-  head: [string, string, string];
+  head: [string, string, string, string];
   rows: DataPanelRow[];
   empty: ReactNode;
 }
@@ -26,7 +27,7 @@ export function DataPanel({ title, description, head, rows, empty }: DataPanelPr
         <div role="table" aria-label={title}>
           <div
             role="row"
-            className="grid grid-cols-[1fr_auto_auto] items-baseline gap-[18px] border-b border-[#dce3e8] pb-[11px] text-[11px] font-bold uppercase tracking-[0.08em] text-[#66727f]"
+            className="grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-3 border-b border-[#dce3e8] pb-[11px] text-[11px] font-bold uppercase tracking-[0.08em] text-[#66727f]"
           >
             {head.map((cell) => (
               <span key={cell} role="columnheader">
@@ -38,12 +39,15 @@ export function DataPanel({ title, description, head, rows, empty }: DataPanelPr
             <div
               key={row.key}
               role="row"
-              className="grid grid-cols-[1fr_auto_auto] items-baseline gap-[18px] border-b border-[#dce3e8] py-[11px] last:border-b-0"
+              className="grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-3 border-b border-[#dce3e8] py-[11px] last:border-b-0"
             >
               <span role="cell" className="truncate text-[#17202a]">
                 {row.label}
               </span>
-              <strong role="cell" className="font-semibold text-[#17202a]">
+              <span role="cell" className="tabular-nums text-[#66727f]">
+                {row.calls}
+              </span>
+              <strong role="cell" className="tabular-nums font-semibold text-[#17202a]">
                 {row.value}
               </strong>
               <small role="cell" className="text-[#16856b]">
