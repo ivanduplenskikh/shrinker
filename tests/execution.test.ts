@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { runCommand } from "../src/execution/run-command.js";
@@ -29,6 +31,26 @@ test("Windows alias fallback supports cat and ls", async () => {
   const lsResult = await runCommand("ls", ["src"]);
   assert.equal(lsResult.exitCode, 0, lsResult.stderr);
   assert.match(lsResult.stdout, /filters\//);
+});
+
+test("Windows cmd proxy preserves executable paths with spaces", async (context) => {
+  if (process.platform !== "win32") return;
+
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-cmd-proxy-"));
+  context.after(async () => await rm(directory, { recursive: true, force: true }));
+  const commandDirectory = path.join(directory, "Program Files", "nodejs");
+  const commandPath = path.join(commandDirectory, "npm.cmd");
+  await mkdir(commandDirectory, { recursive: true });
+  await writeFile(
+    commandPath,
+    "@echo off\r\necho cmd-proxy-ok %1 %2\r\n",
+    "utf8",
+  );
+
+  const result = await runCommand(commandPath, ["--version", "quoted value"]);
+
+  assert.equal(result.exitCode, 0, result.stderr);
+  assert.match(result.stdout, /cmd-proxy-ok --version "quoted value"/);
 });
 
 test("filter detection recognizes supported command families", () => {

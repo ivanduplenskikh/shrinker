@@ -142,7 +142,7 @@ async function spawnAndCapture(
   return await new Promise<CommandResult>((resolve, reject) => {
     const spawnCommand = viaCmdProxy ? "cmd.exe" : executable;
     const spawnArgs = viaCmdProxy
-      ? ["/d", "/s", "/c", `${quoteForCmd(executable)} ${args.map(quoteForCmd).join(" ")}`]
+      ? ["/d", "/s", "/c", `"${quoteForCmd(executable)} ${args.map(quoteForCmd).join(" ")}"`]
       : args;
 
     const child = spawn(spawnCommand, spawnArgs, {
@@ -150,6 +150,7 @@ async function spawnAndCapture(
       env: process.env,
       shell: false,
       windowsHide: true,
+      windowsVerbatimArguments: viaCmdProxy,
     });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
