@@ -1,6 +1,12 @@
 import { copyFileSync, mkdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-mkdirSync("internal/dashboard/ui/assets", { recursive: true });
-copyFileSync("packages/dashboard-ui/dist/index.html", "internal/dashboard/ui/app.html");
-copyFileSync("packages/dashboard-ui/dist/assets/index.css", "internal/dashboard/ui/assets/app.css");
-copyFileSync("packages/dashboard-ui/dist/assets/dashboard.js", "internal/dashboard/ui/assets/dashboard.js");
+const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
+const dashboardDist = new URL("packages/dashboard-ui/dist/", `file://${repositoryRoot}/`);
+const embeddedDashboard = new URL("internal/dashboard/ui/", `file://${repositoryRoot}/`);
+
+mkdirSync(embeddedDashboard, { recursive: true });
+mkdirSync(new URL("assets/", embeddedDashboard), { recursive: true });
+copyFileSync(new URL("index.html", dashboardDist), new URL("app.html", embeddedDashboard));
+copyFileSync(new URL("assets/index.css", dashboardDist), new URL("assets/app.css", embeddedDashboard));
+copyFileSync(new URL("assets/dashboard.js", dashboardDist), new URL("assets/dashboard.js", embeddedDashboard));

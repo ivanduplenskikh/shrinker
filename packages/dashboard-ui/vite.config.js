@@ -1,7 +1,9 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+import tailwindcss from '@tailwindcss/vite'
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -29,7 +31,16 @@ function statsMiddleware() {
 }
 
 export default defineConfig({
-  plugins: [react(), statsMiddleware()],
+  plugins: [
+    react(),
+    statsMiddleware(),
+    tailwindcss(),
+  ],
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   build: {
     assetsDir: "assets",
     rollupOptions: {

@@ -1,5 +1,6 @@
-import { Chip } from "@heroui/react";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge"
+
 import type { CommandStat, UncoveredRow } from "../types";
 
 type SortKey = "command" | "filter" | "runs" | "original" | "saved" | "reduction" | "status";
@@ -106,14 +107,14 @@ export function CommandTable({
                 <tr className={row.kind === "uncovered" ? "missed-filter" : undefined} key={row.key}>
                   <td><code>{row.command}</code></td>
                   <td>
-                    <Chip size="sm" color={row.kind === "uncovered" ? "danger" : undefined} variant="secondary">{row.filter}</Chip>
+                    <Badge variant={row.kind === "uncovered" ? "destructive" : "secondary"}>{row.filter}</Badge>
                     {row.reasons.length > 0 && <span className="table-detail">{row.reasons.join(", ")}</span>}
                   </td>
                   <td className="numeric">{formatNumber(row.runs)}</td>
                   <td className="numeric">{formatNumber(row.original)}</td>
                   <td className="numeric">{row.saved === null ? "" : formatNumber(row.saved)}</td>
                   <td className="numeric">{row.reduction === null ? "" : `${row.reduction}%`}</td>
-                  <td><Chip size="sm" color={row.kind === "uncovered" ? "danger" : "success"} variant="secondary">{row.status}</Chip></td>
+                  <td><Badge variant={row.kind === "uncovered" ? "destructive" : "success"}>{row.status}</Badge></td>
                 </tr>
               ))}
             </>
