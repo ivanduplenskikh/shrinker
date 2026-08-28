@@ -1,5 +1,7 @@
-import { Badge } from "@/components/ui/dashboard-badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import { CommandTable } from "./components/CommandTable";
 import { SummaryCards } from "./components/SummaryCards";
 import { TrendChart } from "./components/TrendChart";
@@ -19,11 +21,22 @@ export function Dashboard({ summary }: { summary: Summary }) {
       <Card className="panel">
         <CardContent>
           <div className="section-heading">
-            <div>
-              <p className="eyebrow">Trend</p>
-              <h6>Tokens saved over time</h6>
-            </div>
-            <Badge variant="secondary">Daily</Badge>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2 rounded-full px-3 py-2"
+                    aria-label="More about tokens saved over time"
+                    >
+                    <p className="eyebrow">Trend</p>
+                    <QuestionMarkCircledIcon />
+                  </Button>
+                }
+              />
+              <TooltipContent>Tokens saved over time</TooltipContent>
+            </Tooltip>
           </div>
           <TrendChart daily={summary.daily} />
         </CardContent>
