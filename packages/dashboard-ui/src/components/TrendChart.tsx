@@ -31,6 +31,12 @@ function completeDailySeries(daily: DailyStat[]): DailyStat[] {
   return completeSeries;
 }
 
+function formatTokenAxis(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}k`;
+  return String(value);
+}
+
 export function TrendChart({ daily }: { daily: DailyStat[] }) {
   const chartData = completeDailySeries(daily);
 
@@ -49,7 +55,13 @@ export function TrendChart({ daily }: { daily: DailyStat[] }) {
           tickLine={false}
           tickMargin={8}
         />
-        <YAxis axisLine={false} domain={[0, "auto"]} tickLine={false} width={44} />
+        <YAxis
+          axisLine={false}
+          domain={[0, "auto"]}
+          tickFormatter={formatTokenAxis}
+          tickLine={false}
+          width={44}
+        />
         <ChartTooltip
           content={<ChartTooltipContent indicator="line" />}
           cursor={false}
