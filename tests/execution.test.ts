@@ -77,6 +77,21 @@ test("git log preserves explicit patch and custom format output", () => {
   assert.equal(customResult.omitted, false);
 });
 
+test("git log applies the global line cap even when preserving explicit formats", () => {
+  const raw = Array.from({ length: 200 }, (_, index) => `abcdef${index} Subject ${index}`).join("\n");
+  const result = applyFilter(
+    raw,
+    "auto",
+    ["git", "log", "--format=%h %s"],
+    { ...filterOptions, maxLines: 20 },
+  );
+
+  assert.equal(result.kind, "git-log");
+  assert.equal(result.omitted, true);
+  assert.match(result.output, /lines omitted/);
+  assert.ok(result.output.split("\n").length < raw.split("\n").length);
+});
+
 test("git log preserves every tested diff-producing form", () => {
   const patch = "commit abcdef1234567890\n\n    Subject\n\ndiff --git a/a b/a\n+line";
   for (const args of [

@@ -190,11 +190,15 @@ export function filterGitLog(input: string, options: FilterOptions): FilterResul
     lines.some((line) => line.startsWith("diff --git ")) ||
     hasStructuredLogDetails(lines)
   ) {
+    const limited = limitLines(lines, options.maxLines);
     return {
-      output: cleaned,
+      output: limited.lines.join("\n"),
       kind: "git-log",
-      omitted: false,
-      notes: ["explicit Git output format preserved"],
+      omitted: limited.omitted > 0,
+      ...(limited.omitted > 0 ? { recovery: "always" as const } : {}),
+      notes: limited.omitted > 0
+        ? ["explicit Git output format preserved", `omitted ${limited.omitted} output lines`]
+        : ["explicit Git output format preserved"],
     };
   }
 
