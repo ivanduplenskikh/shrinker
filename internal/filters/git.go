@@ -3,6 +3,7 @@ package filters
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/ivanduplenskikh/shrinker/internal/formatting"
 )
@@ -47,23 +48,64 @@ func applyGitLog(input string, options Options) Result {
 		limited, omitted := formatting.LimitLines(lines, options.MaxLines)
 		return Result{Output: strings.Join(limited, "\n"), Kind: "git-log", Omitted: omitted > 0}
 	}
-	compact := []string{}
-	current := ""
+	type commit struct {
+		hash, author, date, subject string
+		body                        []string
+	}
+	commits := []commit{}
+	current := -1
 	for _, line := range lines {
-		if match := regexp.MustCompile(`(?i)^commit\s+([0-9a-f]{7,40})`).FindStringSubmatch(line); len(match) > 0 {
-			current = match[1]
+		if match := regexp.MustCompile(`(?i)^commit\s+([0-9a-f]{7,40})(?:\s+\(([^)]+)\))?`).FindStringSubmatch(line); len(match) > 0 {
+			commits = append(commits, commit{hash: match[1]})
+			current = len(commits) - 1
 			continue
 		}
-		if current != "" && strings.HasPrefix(line, "Author:") {
+		if current < 0 {
 			continue
 		}
-		if current != "" && strings.HasPrefix(line, "Date:") {
+		if match := regexp.MustCompile(`^Author:\s+(.+?)(?:\s+<[^>]+>)?$`).FindStringSubmatch(line); len(match) > 0 {
+			commits[current].author = strings.TrimSpace(match[1])
+			continue
+		}
+		if strings.HasPrefix(line, "Date:") {
+			date := strings.TrimSpace(strings.TrimPrefix(line, "Date:"))
+			if parsed, err := time.Parse(time.RFC1123Z, date); err == nil {
+				date = parsed.Format("2006-01-02")
+			}
+			commits[current].date = date
 			continue
 		}
 		trimmed := strings.TrimSpace(line)
-		if current != "" && trimmed != "" {
-			compact = append(compact, current[:min(10, len(current))]+" "+trimmed)
-			current = ""
+		if trimmed == "" {
+			continue
+		}
+		if commits[current].subject == "" {
+			commits[current].subject = trimmed
+		} else if !strings.HasPrefix(trimmed, "Signed-off-by:") && !strings.HasPrefix(trimmed, "Co-authored-by:") {
+			commits[current].body = append(commits[current].body, trimmed)
+		}
+	}
+	compact := []string{}
+	for _, item := range commits {
+		if item.subject == "" {
+			continue
+		}
+		details := []string{}
+		if item.author != "" {
+			details = append(details, item.author)
+		}
+		if item.date != "" {
+			details = append(details, item.date)
+		}
+		header := item.hash[:min(10, len(item.hash))] + " " + item.subject
+		if len(details) > 0 {
+			header += " — " + strings.Join(details, ", ")
+		}
+		compact = append(compact, header)
+		visible := min(3, len(item.body))
+		compact = append(compact, item.body[:visible]...)
+		if len(item.body) > visible {
+			compact = append(compact, "[+"+itoa(len(item.body)-visible)+" body lines omitted]")
 		}
 	}
 	if len(compact) == 0 {

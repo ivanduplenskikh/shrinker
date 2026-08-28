@@ -44,6 +44,15 @@ func TestRepresentativeFilterFixtures(t *testing.T) {
 	}
 }
 
+func TestGitLogPreservesUsefulCommitContext(t *testing.T) {
+	result := Apply(fixture(t, "git-log.txt"), "git-log", Options{MaxLines: 80, PerFileLines: 20, Command: []string{"git", "log"}})
+	for _, expected := range []string{"Add deterministic test output compression", "Ada Developer", "Collapse passing test details", "body lines omitted"} {
+		if !strings.Contains(result.Output, expected) {
+			t.Errorf("git log output missing %q:\n%s", expected, result.Output)
+		}
+	}
+}
+
 func TestAutoDetectionCoversCommandFamilies(t *testing.T) {
 	tests := map[string]Kind{
 		"git status":  Detect([]string{"git", "status"}),
