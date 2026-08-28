@@ -1,4 +1,4 @@
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
@@ -14,12 +14,31 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+function completeDailySeries(daily: DailyStat[]): DailyStat[] {
+  if (daily.length === 0) return [];
+
+  const valuesByDate = new Map(daily.map((row) => [row.date, row.estimatedTokensSaved]));
+  const dates = [...valuesByDate.keys()].sort();
+  const start = new Date(`${dates[0]}T00:00:00Z`);
+  const end = new Date(`${dates[dates.length - 1]}T00:00:00Z`);
+  const completeSeries: DailyStat[] = [];
+
+  for (let date = start; date <= end; date.setUTCDate(date.getUTCDate() + 1)) {
+    const key = date.toISOString().slice(0, 10);
+    completeSeries.push({ date: key, estimatedTokensSaved: valuesByDate.get(key) ?? 0 });
+  }
+
+  return completeSeries;
+}
+
 export function TrendChart({ daily }: { daily: DailyStat[] }) {
+  const chartData = completeDailySeries(daily);
+
   return (
     <ChartContainer className="h-[300px] w-full" config={chartConfig}>
       <AreaChart
         accessibilityLayer
-        data={daily}
+        data={chartData}
         margin={{ left: 12, right: 12 }}
       >
         <CartesianGrid vertical={false} />
@@ -30,6 +49,7 @@ export function TrendChart({ daily }: { daily: DailyStat[] }) {
           tickLine={false}
           tickMargin={8}
         />
+        <YAxis axisLine={false} domain={[0, "auto"]} tickLine={false} width={44} />
         <ChartTooltip
           content={<ChartTooltipContent indicator="line" />}
           cursor={false}
@@ -39,7 +59,7 @@ export function TrendChart({ daily }: { daily: DailyStat[] }) {
           fill="var(--color-estimatedTokensSaved)"
           fillOpacity={0.35}
           stroke="var(--color-estimatedTokensSaved)"
-          type="natural"
+          type="monotone"
         />
       </AreaChart>
     </ChartContainer>
