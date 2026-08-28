@@ -86,6 +86,10 @@ body {
   border-radius: 8px;
 }
 
+.card.card--default {
+  text-align: center;
+}
+
 .section-heading {
   display: flex;
   align-items: center;
@@ -175,6 +179,11 @@ body {
 .command-table th:last-child,
 .command-table td:last-child {
   width: 18%;
+  text-align: right;
+}
+
+.command-table th:last-child .table-sort {
+  text-align: right;
 }
 
 .command-table tbody tr:last-child td {
