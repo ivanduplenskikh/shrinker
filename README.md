@@ -53,6 +53,23 @@ The installer downloads these anonymous GitHub Release assets by default:
 
 Network allowlists need access to `raw.githubusercontent.com` for the installer script and `github.com/ivanduplenskikh/shrinker/releases/download/...` for release assets.
 
+### Unified installer
+
+The installer implementation is a single cross-platform Go command. From a checkout:
+
+```powershell
+go run ./cmd/installer install --local --enable-profile-routing
+go run ./cmd/installer uninstall
+```
+
+On an existing release, run the compiled installer with no `--local` flag:
+
+```powershell
+go run ./cmd/installer install --version 0.12.0
+```
+
+The legacy PowerShell and shell scripts remain thin platform entrypoints for one-line remote installation and profile syntax compatibility.
+
 ### Update notices
 
 Shrinker checks GitHub Releases at most once every 24 hours and prints an update notice to stderr when a newer version is available. The check only requests release metadata from GitHub; command output, paths, stats, and machine identifiers are not sent.
