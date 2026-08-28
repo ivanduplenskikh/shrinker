@@ -53,6 +53,22 @@ The installer downloads these anonymous GitHub Release assets by default:
 
 Network allowlists need access to `raw.githubusercontent.com` for the installer script and `github.com/ivanduplenskikh/shrinker/releases/download/...` for release assets.
 
+### Update notices
+
+Shrinker checks GitHub Releases at most once every 24 hours and prints an update notice to stderr when a newer version is available. The check only requests release metadata from GitHub; command output, paths, stats, and machine identifiers are not sent.
+
+To disable update checks for one shell session:
+
+```powershell
+$env:SHRINKER_UPDATE_CHECK = "0"
+```
+
+Or set it in `~/.shrinker/config`:
+
+```text
+SHRINKER_UPDATE_CHECK=0
+```
+
 ### Optional npm package install
 
 Use this only when npm registry access is available or preferred.

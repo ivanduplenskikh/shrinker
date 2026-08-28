@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { isTruthy, readConfig, resolveSetting } from "../src/config.js";
+import { isTruthy, readConfig, resolveSetting, setConfigValue } from "../src/config.js";
 
 async function withConfig(contents: string | undefined, body: (configPath: string) => void | Promise<void>) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-config-"));
@@ -34,6 +34,24 @@ test("a missing config file is treated as empty rather than fatal", async () => 
 test("the last assignment of a repeated key wins", async () => {
   await withConfig("SHRINKER_TRACK_UNCOVERED=0\nSHRINKER_TRACK_UNCOVERED=1\n", (configPath) => {
     assert.equal(readConfig(configPath).get("SHRINKER_TRACK_UNCOVERED"), "1");
+  });
+});
+
+test("setting a config value updates the matching key and preserves other lines", async () => {
+  await withConfig("# keep me\nSHRINKER_TRACK_UNCOVERED=0\nOTHER=value\n", async (configPath) => {
+    setConfigValue("SHRINKER_TRACK_UNCOVERED", "1", configPath);
+
+    assert.equal(readConfig(configPath).get("SHRINKER_TRACK_UNCOVERED"), "1");
+    assert.equal(readConfig(configPath).get("OTHER"), "value");
+    assert.match(await readFile(configPath, "utf8"), /^# keep me\n/m);
+  });
+});
+
+test("setting a config value creates the file when it is missing", async () => {
+  await withConfig(undefined, (configPath) => {
+    setConfigValue("SHRINKER_LAST_UPDATE_CHECK", "123", configPath);
+
+    assert.equal(readConfig(configPath).get("SHRINKER_LAST_UPDATE_CHECK"), "123");
   });
 });
 

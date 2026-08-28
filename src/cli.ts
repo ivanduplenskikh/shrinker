@@ -19,6 +19,8 @@ import {
   recordRun,
   recordUncovered,
 } from "./metrics/stats-store.js";
+import { checkForUpdate, formatUpdateNotice, markUpdateNoticeShown, wasUpdateNoticeShown } from "./updates/check.js";
+import { getCurrentVersion } from "./version.js";
 
 interface CliOptions {
   mode: "exec" | "pipe" | "stats" | "last" | "raw-output" | "track" | "help";
@@ -328,11 +330,23 @@ async function render(
   }
 }
 
+async function maybeShowUpdateNotice(): Promise<void> {
+  try {
+    const currentVersion = getCurrentVersion();
+    const result = await checkForUpdate(currentVersion ? { currentVersion } : {});
+    if (result.latestVersion && wasUpdateNoticeShown(result.latestVersion)) return;
+    const notice = formatUpdateNotice(result);
+    if (notice) process.stderr.write(`${notice}\n`);
+    if (result.latestVersion && notice) markUpdateNoticeShown(result.latestVersion);
+  } catch {}
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
 
   if (options.mode === "help") {
     process.stdout.write(`${usage()}\n`);
+    await maybeShowUpdateNotice();
     return;
   }
 
@@ -351,6 +365,7 @@ async function main(): Promise<void> {
         } else {
           process.stdout.write(`Dashboard server started at http://127.0.0.1:${options.dashboardPort} (PID ${dashboard.pid})\n`);
         }
+        await maybeShowUpdateNotice();
       }
       return;
     }
@@ -362,6 +377,7 @@ async function main(): Promise<void> {
           ? formatStatsChart(summary)
           : formatStats(summary);
     process.stdout.write(`${output}\n`);
+            await maybeShowUpdateNotice();
     return;
   }
 
@@ -399,6 +415,7 @@ async function main(): Promise<void> {
   if (options.mode === "pipe") {
     const input = await readStdin();
     await render(input, options);
+    await maybeShowUpdateNotice();
     return;
   }
 
@@ -407,6 +424,7 @@ async function main(): Promise<void> {
   const result = await runCommand(command, args);
   await render(result.combined, options, result.durationMs, result.exitCode);
   process.exitCode = result.exitCode;
+  if (result.exitCode === 0) await maybeShowUpdateNotice();
 }
 
 main().catch((error: unknown) => {

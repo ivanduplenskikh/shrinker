@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -34,6 +34,29 @@ export function resolveSetting(key: string, configPath?: string): string | undef
   const fromEnvironment = process.env[key];
   if (fromEnvironment !== undefined && fromEnvironment.trim() !== "") return fromEnvironment;
   return readConfig(configPath).get(key);
+}
+
+export function setConfigValue(key: string, value: string, configPath = defaultConfigPath()): void {
+  const directory = path.dirname(configPath);
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+
+  let lines: string[] = [];
+  try {
+    lines = readFileSync(configPath, "utf8").split(/\r?\n/);
+  } catch {}
+
+  let replaced = false;
+  const nextLines = lines.map((line) => {
+    const withoutComment = line.split("#")[0]?.trim() ?? "";
+    const separator = withoutComment.indexOf("=");
+    const existingKey = separator > 0 ? withoutComment.slice(0, separator).trim() : "";
+    if (existingKey !== key) return line;
+    replaced = true;
+    return `${key}=${value}`;
+  }).filter((line, index, array) => line !== "" || index < array.length - 1);
+
+  if (!replaced) nextLines.push(`${key}=${value}`);
+  writeFileSync(configPath, `${nextLines.join("\n")}\n`, "utf8");
 }
 
 export function isTruthy(value: string | undefined): boolean {
