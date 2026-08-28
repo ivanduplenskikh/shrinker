@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { Card, Chip, Table } from "@heroui/react";
+import { Card, Chip } from "@heroui/react";
 import "./styles.css";
 
 interface DailyStat { date: string; estimatedTokensSaved: number; }
@@ -30,12 +30,12 @@ function TrendChart({ daily }: { daily: DailyStat[] }) {
   </svg></div>;
 }
 
-function Dashboard() {
+export function Dashboard() {
   return <main className="page-shell">
     <header className="page-header"><div><p className="eyebrow">Local activity</p><h1>Shrinker stats</h1><p className="database-path">{summary.databasePath}</p></div><Chip color="success" variant="soft">Local only</Chip></header>
     <section className="summary-grid" aria-label="Summary"><Card><Card.Content><span className="stat-label">Runs</span><strong>{formatNumber(summary.total.runs)}</strong></Card.Content></Card><Card><Card.Content><span className="stat-label">Tokens saved</span><strong>{formatNumber(summary.total.estimatedTokensSaved)}</strong></Card.Content></Card><Card><Card.Content><span className="stat-label">Reduction</span><strong>{summary.total.reductionPercent || 0}%</strong></Card.Content></Card><Card><Card.Content><span className="stat-label">Last 7 days</span><strong>{formatNumber(summary.last7Days.estimatedTokensSaved)}</strong></Card.Content></Card></section>
     <Card className="panel"><Card.Content><div className="section-heading"><div><p className="eyebrow">Trend</p><h2>Tokens saved over time</h2></div><Chip variant="secondary">Daily</Chip></div><TrendChart daily={summary.daily} /></Card.Content></Card>
-    <Card className="panel"><Card.Content><div className="section-heading"><div><p className="eyebrow">Command coverage</p><h2>Top commands</h2></div><span className="database-path">Arguments omitted</span></div><Table aria-label="Top commands"><Table.Header><Table.Column>COMMAND</Table.Column><Table.Column>FILTER</Table.Column><Table.Column>RUNS</Table.Column><Table.Column>SAVED</Table.Column><Table.Column>REDUCTION</Table.Column></Table.Header><Table.Body<CommandStat> items={summary.byCommand} renderEmptyState={() => "No command data yet."}>{(row) => <Table.Row id={`${row.command}-${row.filterKind}`}><Table.Cell><code>{row.command}</code></Table.Cell><Table.Cell><Chip size="sm" variant="secondary">{row.filterKind}</Chip></Table.Cell><Table.Cell>{formatNumber(row.calls)}</Table.Cell><Table.Cell>{formatNumber(row.estimatedTokensSaved)}</Table.Cell><Table.Cell>{row.reductionPercent}%</Table.Cell></Table.Row>}</Table.Body></Table></Card.Content></Card>
+    <Card className="panel"><Card.Content><div className="section-heading"><div><p className="eyebrow">Command coverage</p><h2>Top commands</h2></div><span className="database-path">Arguments omitted</span></div><div className="table-wrap"><table><caption className="sr-only">Top commands</caption><thead><tr><th scope="col">COMMAND</th><th scope="col">FILTER</th><th scope="col">RUNS</th><th scope="col">SAVED</th><th scope="col">REDUCTION</th></tr></thead><tbody>{summary.byCommand.length === 0 ? <tr><td colSpan={5}>No command data yet.</td></tr> : summary.byCommand.map((row) => <tr key={`${row.command}-${row.filterKind}`}><td><code>{row.command}</code></td><td><Chip size="sm" variant="secondary">{row.filterKind}</Chip></td><td>{formatNumber(row.calls)}</td><td>{formatNumber(row.estimatedTokensSaved)}</td><td>{row.reductionPercent}%</td></tr>)}</tbody></table></div></Card.Content></Card>
   </main>;
 }
 
