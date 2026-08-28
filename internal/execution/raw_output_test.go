@@ -5,6 +5,13 @@ import (
 	"testing"
 )
 
+func TestLatestRawOutputReturnsNotFoundWhenEmpty(t *testing.T) {
+	_, err := GetLatestRawOutput(t.TempDir())
+	if !os.IsNotExist(err) {
+		t.Fatalf("GetLatestRawOutput error = %v, want not found", err)
+	}
+}
+
 func TestRawOutputSaveAndRetrieve(t *testing.T) {
 	directory := t.TempDir()
 	capture, err := SaveRawOutput("full output", []string{"git"}, directory)

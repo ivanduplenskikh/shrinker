@@ -7,14 +7,10 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"os/exec"
-	"runtime"
 	"strings"
 
 	"github.com/ivanduplenskikh/shrinker/internal/metrics"
 )
-
-const marker = `name="generator" content="shrinker-dashboard"`
 
 var page = template.Must(template.New("dashboard").Parse(`<!doctype html>
 <html><head><meta charset="utf-8"><meta name="generator" content="shrinker-dashboard"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Shrinker stats</title>
@@ -80,23 +76,8 @@ func Handler(getSummary func() (metrics.StatsSummary, error), server *http.Serve
 			return
 		}
 		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = writer.Write([]byte(html))
+		if _, err := writer.Write([]byte(html)); err != nil {
+			return
+		}
 	})
-}
-
-func Open(url string) {
-	var command string
-	var args []string
-	switch runtime.GOOS {
-	case "windows":
-		command = "cmd.exe"
-		args = []string{"/c", "start", "", url}
-	case "darwin":
-		command = "open"
-		args = []string{url}
-	default:
-		command = "xdg-open"
-		args = []string{url}
-	}
-	_ = exec.Command(command, args...).Start()
 }

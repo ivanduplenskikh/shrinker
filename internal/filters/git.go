@@ -2,16 +2,20 @@ package filters
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ivanduplenskikh/shrinker/internal/formatting"
 )
 
+var commitPattern = regexp.MustCompile(`(?i)^commit\s+([0-9a-f]{7,40})(?:\s+\(([^)]+)\))?`)
+var authorPattern = regexp.MustCompile(`^Author:\s+(.+?)(?:\s+<[^>]+>)?$`)
+
 func applyGitDiff(input string, options Options) Result {
 	lines := strings.Split(formatting.CleanText(input), "\n")
 	output := []string{}
-	files, additions, deletions := 0, 0, 0
+	files := 0
 	for _, line := range lines {
 		if strings.HasPrefix(line, "diff --git ") {
 			files++
@@ -19,12 +23,10 @@ func applyGitDiff(input string, options Options) Result {
 			continue
 		}
 		if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
-			additions++
 			output = append(output, line)
 			continue
 		}
 		if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
-			deletions++
 			output = append(output, line)
 			continue
 		}
@@ -36,8 +38,6 @@ func applyGitDiff(input string, options Options) Result {
 		return Result{Output: strings.Join(lines, "\n"), Kind: "git-diff"}
 	}
 	limited, omitted := formatting.LimitLines(output, options.MaxLines)
-	_ = additions
-	_ = deletions
 	return Result{Output: strings.Join(limited, "\n"), Kind: "git-diff", Omitted: omitted > 0 || len(output) < len(lines)}
 }
 
@@ -55,7 +55,7 @@ func applyGitLog(input string, options Options) Result {
 	commits := []commit{}
 	current := -1
 	for _, line := range lines {
-		if match := regexp.MustCompile(`(?i)^commit\s+([0-9a-f]{7,40})(?:\s+\(([^)]+)\))?`).FindStringSubmatch(line); len(match) > 0 {
+		if match := commitPattern.FindStringSubmatch(line); len(match) > 0 {
 			commits = append(commits, commit{hash: match[1]})
 			current = len(commits) - 1
 			continue
@@ -63,7 +63,7 @@ func applyGitLog(input string, options Options) Result {
 		if current < 0 {
 			continue
 		}
-		if match := regexp.MustCompile(`^Author:\s+(.+?)(?:\s+<[^>]+>)?$`).FindStringSubmatch(line); len(match) > 0 {
+		if match := authorPattern.FindStringSubmatch(line); len(match) > 0 {
 			commits[current].author = strings.TrimSpace(match[1])
 			continue
 		}
@@ -105,7 +105,7 @@ func applyGitLog(input string, options Options) Result {
 		visible := min(3, len(item.body))
 		compact = append(compact, item.body[:visible]...)
 		if len(item.body) > visible {
-			compact = append(compact, "[+"+itoa(len(item.body)-visible)+" body lines omitted]")
+			compact = append(compact, "[+"+strconv.Itoa(len(item.body)-visible)+" body lines omitted]")
 		}
 	}
 	if len(compact) == 0 {

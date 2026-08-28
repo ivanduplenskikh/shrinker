@@ -25,24 +25,20 @@ func applyGenericLog(input string, requested Kind, options Options) Result {
 		if progressPattern.MatchString(line) && !importantPattern.MatchString(line) {
 			progressLines += count
 		} else if count >= 3 {
-			compact = append(compact, line+" [repeated "+itoa(count)+"x]")
+			compact = append(compact, line+" [repeated "+strconv.Itoa(count)+"x]")
 		} else {
 			compact = append(compact, lines[index:index+count]...)
 		}
 		index += count
 	}
 	if progressLines > 0 {
-		compact = append([]string{"[" + itoa(progressLines) + " progress lines collapsed]"}, compact...)
+		compact = append([]string{"[" + strconv.Itoa(progressLines) + " progress lines collapsed]"}, compact...)
 	}
 	limited, omitted := formatting.LimitLines(compact, options.MaxLines)
 	wasOmitted := progressLines > 0 || omitted > 0 || len(compact) < len(lines)
 	result := Result{Output: strings.Join(limited, "\n"), Kind: KindLog, Omitted: wasOmitted, Matched: requested != KindAuto}
 	if progressLines > 0 {
-		result.Notes = []string{"collapsed " + itoa(progressLines) + " progress lines"}
+		result.Notes = []string{"collapsed " + strconv.Itoa(progressLines) + " progress lines"}
 	}
 	return result
-}
-
-func itoa(value int) string {
-	return strconv.Itoa(value)
 }

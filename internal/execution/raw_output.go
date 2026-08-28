@@ -65,8 +65,11 @@ func SaveRawOutput(output string, command []string, directory string) (RawCaptur
 
 func GetLatestRawOutput(directory string) (RawCapture, error) {
 	captures, err := listRawCaptures(directory)
-	if err != nil || len(captures) == 0 {
+	if err != nil {
 		return RawCapture{}, err
+	}
+	if len(captures) == 0 {
+		return RawCapture{}, os.ErrNotExist
 	}
 	return readRawCapture(captures[len(captures)-1])
 }
@@ -105,20 +108,31 @@ func listRawCaptures(directory string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	paths := make([]string, 0, len(entries))
+	type capturePath struct {
+		path string
+		info os.FileInfo
+	}
+	captures := make([]capturePath, 0, len(entries))
 	for _, entry := range entries {
 		if entry.Type().IsRegular() && strings.HasSuffix(entry.Name(), ".log") {
-			paths = append(paths, filepath.Join(directory, entry.Name()))
+			path := filepath.Join(directory, entry.Name())
+			info, err := entry.Info()
+			if err != nil {
+				return nil, err
+			}
+			captures = append(captures, capturePath{path: path, info: info})
 		}
 	}
-	sort.Slice(paths, func(left, right int) bool {
-		leftInfo, _ := os.Stat(paths[left])
-		rightInfo, _ := os.Stat(paths[right])
-		if leftInfo.ModTime().Equal(rightInfo.ModTime()) {
-			return paths[left] < paths[right]
+	sort.Slice(captures, func(left, right int) bool {
+		if captures[left].info.ModTime().Equal(captures[right].info.ModTime()) {
+			return captures[left].path < captures[right].path
 		}
-		return leftInfo.ModTime().Before(rightInfo.ModTime())
+		return captures[left].info.ModTime().Before(captures[right].info.ModTime())
 	})
+	paths := make([]string, len(captures))
+	for index, capture := range captures {
+		paths[index] = capture.path
+	}
 	return paths, nil
 }
 

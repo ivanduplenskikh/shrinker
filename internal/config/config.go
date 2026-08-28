@@ -48,7 +48,10 @@ func Set(key, value, path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	contents, _ := os.ReadFile(path)
+	contents, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	lines := strings.Split(string(contents), "\n")
 	replaced := false
 	next := make([]string, 0, len(lines)+1)

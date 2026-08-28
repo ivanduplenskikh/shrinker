@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 const blockStart = "# >>> shrinker integration >>>"
@@ -68,9 +69,9 @@ func install(args []string) {
 		if err != nil {
 			fail(err.Error())
 		}
-		staging := filepath.Join(os.TempDir(), "shrinker-install")
-		_ = os.RemoveAll(staging)
-		if err := os.MkdirAll(staging, 0o700); err != nil {
+		defer os.Remove(archive)
+		staging, err := os.MkdirTemp("", "shrinker-install-")
+		if err != nil {
 			fail(err.Error())
 		}
 		defer os.RemoveAll(staging)
@@ -122,7 +123,7 @@ func install(args []string) {
 		if err != nil {
 			fail(err.Error())
 		}
-		if err := installRules(string(body), *skipRules); err != nil {
+		if err := installRules(string(body)); err != nil {
 			fail(err.Error())
 		}
 	}
@@ -134,11 +135,15 @@ func uninstall(args []string) {
 	installDir := flags.String("install-dir", defaultInstallDir(), "installation directory")
 	profile := flags.String("profile-path", defaultProfile(), "shell profile to update")
 	skipProfile := flags.Bool("skip-profile", false, "skip shell profile changes")
-	_ = flags.Parse(args)
+	flags.Parse(args)
 	binDir := filepath.Join(*installDir, "bin")
 	if !*skipProfile {
-		_ = removeBlock(*profile, pathBlockStart(), pathBlockEnd())
-		_ = removeBlock(*profile, blockStart, blockEnd)
+		if err := removeBlock(*profile, pathBlockStart(), pathBlockEnd()); err != nil {
+			fail(err.Error())
+		}
+		if err := removeBlock(*profile, blockStart, blockEnd); err != nil {
+			fail(err.Error())
+		}
 	}
 	if err := os.RemoveAll(binDir); err != nil {
 		fail(err.Error())
@@ -146,7 +151,7 @@ func uninstall(args []string) {
 	fmt.Printf("Removed shrinker from %s\n", binDir)
 }
 
-func installRules(body string, _ bool) error {
+func installRules(body string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -163,7 +168,10 @@ func setConfig(path, key, value string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	contents, _ := os.ReadFile(path)
+	contents, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	lines := strings.Split(string(contents), "\n")
 	next := []string{}
 	for _, line := range lines {
@@ -184,19 +192,11 @@ func addPath(path, directory string) error {
 func addProfile(path, integration string) error {
 	return replaceBlock(path, blockStart, blockEnd, blockStart+"\n"+profileSource(integration)+"\n"+blockEnd)
 }
-func appendBlock(path, start, end, block string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+func replaceBlock(path, start, end, block string) error {
+	contents, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	contents, _ := os.ReadFile(path)
-	text := string(contents)
-	if strings.Contains(text, start) {
-		return nil
-	}
-	return os.WriteFile(path, []byte(strings.TrimRight(text, "\n")+"\n\n"+block+"\n"), 0o600)
-}
-func replaceBlock(path, start, end, block string) error {
-	contents, _ := os.ReadFile(path)
 	text := string(contents)
 	if i := strings.Index(text, start); i >= 0 {
 		if j := strings.Index(text[i:], end); j >= 0 {
@@ -214,7 +214,10 @@ func replaceBlock(path, start, end, block string) error {
 func removeBlock(path, start, end string) error {
 	contents, err := os.ReadFile(path)
 	if err != nil {
-		return nil
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
 	text := string(contents)
 	for {
@@ -271,7 +274,8 @@ func downloadRelease(repo, version, base string) (string, error) {
 			url = "https://github.com/" + repo + "/releases/download/v" + strings.TrimPrefix(version, "v") + "/" + asset
 		}
 	}
-	response, err := http.Get(url)
+	client := &http.Client{Timeout: 2 * time.Minute}
+	response, err := client.Get(url)
 	if err != nil {
 		return "", err
 	}
@@ -279,14 +283,30 @@ func downloadRelease(repo, version, base string) (string, error) {
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return "", fmt.Errorf("release download failed: %s", response.Status)
 	}
-	path := filepath.Join(os.TempDir(), asset)
-	output, err := os.Create(path)
+	output, err := os.CreateTemp("", "shrinker-"+target+"-*"+extension)
 	if err != nil {
 		return "", err
 	}
+	path := output.Name()
 	defer output.Close()
-	_, err = io.Copy(output, response.Body)
-	return path, err
+	if _, err = io.Copy(output, response.Body); err != nil {
+		_ = os.Remove(path)
+		return "", err
+	}
+	return path, nil
+}
+
+func archiveTarget(destination, name string) (string, error) {
+	cleanName := filepath.Clean(filepath.FromSlash(name))
+	if cleanName == "." || filepath.IsAbs(cleanName) || strings.HasPrefix(name, "/") || strings.HasPrefix(name, `\`) {
+		return "", fmt.Errorf("unsafe archive path: %s", name)
+	}
+	target := filepath.Join(destination, cleanName)
+	relative, err := filepath.Rel(destination, target)
+	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("unsafe archive path: %s", name)
+	}
+	return target, nil
 }
 
 func extractArchive(path, destination string) error {
@@ -297,11 +317,13 @@ func extractArchive(path, destination string) error {
 		}
 		defer archive.Close()
 		for _, entry := range archive.File {
-			name := filepath.Clean(entry.Name)
-			if strings.HasPrefix(name, "..") || filepath.IsAbs(name) {
-				return fmt.Errorf("unsafe archive path")
+			if entry.Mode()&os.ModeSymlink != 0 || entry.Mode()&os.ModeNamedPipe != 0 || entry.Mode()&os.ModeSocket != 0 || entry.Mode()&os.ModeDevice != 0 {
+				return fmt.Errorf("unsupported archive entry: %s", entry.Name)
 			}
-			target := filepath.Join(destination, name)
+			target, err := archiveTarget(destination, entry.Name)
+			if err != nil {
+				return err
+			}
 			if entry.FileInfo().IsDir() {
 				if err := os.MkdirAll(target, 0o700); err != nil {
 					return err
@@ -346,11 +368,13 @@ func extractArchive(path, destination string) error {
 		if err != nil {
 			return err
 		}
-		name := filepath.Clean(header.Name)
-		if strings.HasPrefix(name, "..") || filepath.IsAbs(name) {
-			return fmt.Errorf("unsafe archive path")
+		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA && header.Typeflag != tar.TypeDir {
+			return fmt.Errorf("unsupported archive entry: %s", header.Name)
 		}
-		target := filepath.Join(destination, name)
+		target, err := archiveTarget(destination, header.Name)
+		if err != nil {
+			return err
+		}
 		if header.FileInfo().IsDir() {
 			if err := os.MkdirAll(target, 0o700); err != nil {
 				return err
@@ -360,7 +384,7 @@ func extractArchive(path, destination string) error {
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 			return err
 		}
-		output, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o700)
+		output, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(header.Mode)&0o777)
 		if err != nil {
 			return err
 		}
