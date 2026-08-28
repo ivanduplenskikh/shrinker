@@ -120,14 +120,6 @@ INTEGRATION_PATH="$SCRIPT_DIR/shrinker-profile.zsh"
 BLOCK_START="<!-- shrinker agent rules start -->"
 BLOCK_END="<!-- shrinker agent rules end -->"
 
-if (( LOCAL == 1 )); then
-  node_version_raw="$(node -v 2>/dev/null || true)"
-  [[ -n "$node_version_raw" ]] || { print_message "❌" "Node.js was not found on PATH. Install Node.js 22.13+ first." >&2; exit 1; }
-  node_version="${node_version_raw#v}"
-  IFS='.' read -r node_major node_minor _ <<< "$node_version"
-  (( node_major > 22 || (node_major == 22 && node_minor >= 13) )) || { print_message "❌" "Node.js 22.13+ is required. Found $node_version_raw" >&2; exit 1; }
-fi
-
 set_agent_rules() {
   local target="$1"
   local body="$2"
@@ -267,18 +259,11 @@ fi
 
 print_message "📦" "Installing shrinker from: $REPO_ROOT"
 pushd "$REPO_ROOT" >/dev/null
-if (( SKIP_NPM_INSTALL == 0 )); then
-  print_message "📥" "Installing dependencies..."
-  npm install --silent
-fi
-if (( SKIP_BUILD == 0 )); then
-  print_message "🏗️" "Building shrinker..."
-  SHRINKER_BUILD_QUIET=1 npm run build --silent
-fi
-if (( SKIP_LINK == 0 )); then
-  print_message "🔗" "Linking shrinker globally..."
-  npm link --silent
-fi
+command -v go >/dev/null 2>&1 || { print_message "❌" "Go was not found on PATH. Install Go 1.22+ first." >&2; exit 1; }
+print_message "🏗️" "Building Go shrinker..."
+mkdir -p "$INSTALL_DIR/bin"
+go build -o "$INSTALL_DIR/bin/shrinker" ./cmd/shrinker
+add_path_integration "$PROFILE_PATH"
 popd >/dev/null
 
 set_config_value "SHRINKER_TRACK_UNCOVERED" "$TRACK_UNCOVERED"

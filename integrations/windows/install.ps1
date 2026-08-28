@@ -209,32 +209,17 @@ if (-not $SkipAgentRules) {
     $rulesBody = Get-Content $templatePath -Raw
 }
 
-$versionText = & node -v 2>$null
-if (-not $versionText) { throw "Node.js was not found on PATH. Install Node.js 22.13+ first." }
-$version = [version]($versionText.TrimStart('v'))
-if ($version -lt [version]'22.13.0') { throw "Node.js 22.13+ is required. Found $versionText" }
-
 Push-Location $repoRoot
 try {
     Write-InstallStep "📦" "Installing shrinker from: $repoRoot"
-    if (-not $SkipNpmInstall) {
-        Write-InstallStep "📥" "Installing dependencies..."
-        & npm install --silent
-        if ($LASTEXITCODE -ne 0) { throw "npm install failed." }
-    }
-    if (-not $SkipBuild) {
-        Write-InstallStep "🏗️" "Building shrinker..."
-        $previousQuiet = $env:SHRINKER_BUILD_QUIET
-        $env:SHRINKER_BUILD_QUIET = "1"
-        try { & npm run build --silent }
-        finally { $env:SHRINKER_BUILD_QUIET = $previousQuiet }
-        if ($LASTEXITCODE -ne 0) { throw "npm run build failed." }
-    }
-    if (-not $SkipLink) {
-        Write-InstallStep "🔗" "Linking shrinker globally..."
-        & npm link --silent
-        if ($LASTEXITCODE -ne 0) { throw "npm link failed." }
-    }
+    $goVersion = & go version 2>$null
+    if (-not $goVersion) { throw "Go was not found on PATH. Install Go 1.22+ first." }
+    $binaryPath = Join-Path $InstallDir "bin\shrinker.exe"
+    New-Item -ItemType Directory -Force -Path (Split-Path $binaryPath) | Out-Null
+    Write-InstallStep "🏗️" "Building Go shrinker..."
+    & go build -o $binaryPath .\cmd\shrinker
+    if ($LASTEXITCODE -ne 0) { throw "Go build failed." }
+    Add-UserPathEntry (Split-Path $binaryPath)
 } finally { Pop-Location }
 
 Set-ConfigValue "SHRINKER_TRACK_UNCOVERED" $(if ($TrackUncovered) { "1" } else { "0" })

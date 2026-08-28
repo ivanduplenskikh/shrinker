@@ -18,7 +18,7 @@ this POC proves that a few conservative, deterministic filters can save useful c
 
 The recommended customer install downloads a standalone binary from GitHub Releases. It does not require npm registry access or a local Node.js installation.
 
-Contributor and npm-based installs still require Node.js 22.13 or newer. This is the first Node 22 release where the built-in SQLite module no longer requires an experimental flag.
+Contributor builds and local installs use Go 1.26 or newer. Customer installs use the standalone Go binary and require neither Node.js nor npm.
 
 ### One-command install (macOS zsh)
 
@@ -213,20 +213,19 @@ bash ./integrations/macos/install.sh --uninstall --skip-agent-rules
 If your current terminal had already loaded `shrinker-profile.ps1` or `shrinker-profile.zsh`, restart terminal (or remove loaded wrapper functions) to fully return to native command behavior.
 
 ```powershell
-npm install
-npm run build
-node dist\src\cli.js exec -- git status
-node dist\src\cli.js exec -- git diff
-node dist\src\cli.js exec -- git log -n 10
-node dist\src\cli.js exec -- npm test
+go test ./...
+go build -o dist\shrinker.exe .\cmd\shrinker
+.\dist\shrinker.exe exec -- git status
+.\dist\shrinker.exe exec -- git diff
+.\dist\shrinker.exe exec -- git log -n 10
 Get-Content .\tests\fixtures\generic-log.txt -Raw |
-  node dist\src\cli.js pipe --kind log
+    .\dist\shrinker.exe pipe --kind log
 ```
 
 To install the `shrinker` command locally:
 
 ```powershell
-npm link
+go install .\cmd\shrinker
 shrinker git status
 shrinker git log -n 10
 shrinker npm test
@@ -443,24 +442,25 @@ Filters are pure functions, so the same pipeline can later sit behind a GitHub C
 
 ### Workspace layout
 
-The repository is an npm workspace. The CLI lives at the root; the stats dashboard is a separate React + HeroUI app.
+The repository is a Go module. The CLI and dashboard server live under `cmd/` and `internal/`.
 
 ```text
 .
-├── src/                        CLI (TypeScript, ESM, zero runtime dependencies)
-├── tests/                      node:test suites
-└── packages/dashboard-ui/      React + HeroUI dashboard, bundled by Vite
+├── cmd/shrinker/               Go CLI
+├── internal/                   execution, filters, metrics, dashboard
+└── tests/fixtures/             reusable output fixtures
 ```
 
-`packages/dashboard-ui` builds to a single self-contained HTML file (`vite-plugin-singlefile`), which `scripts/emit-template.mjs` then bakes into `src/metrics/dashboard-template.generated.ts`. The CLI injects the current `StatsSummary` into that template as an embedded JSON blob, so the published package still has no runtime dependencies and the dashboard works from `file://` with no server.
+The Go dashboard is rendered as a self-contained HTML file and served locally when requested. It has no Node.js runtime or build dependency.
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev:ui` | Vite dev server with hot reload (renders empty-state data) |
-| `npm run build:ui` | Build the dashboard and regenerate the baked template |
-| `npm run build` | `build:ui`, then `tsc` |
+| `go run ./cmd/shrinker` | Run the CLI from source |
+| `go test ./...` | Run Go tests |
+| `go vet ./...` | Run static checks |
+| `go run ./cmd/release --target linux-x64 --version 0.12.0` | Build a release archive |
 
-`npm run build:ui` is a prerequisite for `tsc`, because the generated template module is a compiled source file. `npm run build`, `npm test`, `npm run demo`, and `npm run pack` all chain it automatically.
+Release builds use the Go packager and embed the Go-owned dashboard directly in the binary.
 
 ## Safety and limitations
 
@@ -475,10 +475,10 @@ The repository is an npm workspace. The CLI lives at the root; the stats dashboa
 ## Validation
 
 ```powershell
-npm test
+go test ./...
 ```
 
-Tests cover information retention, reduction targets, ANSI cleanup, filter selection, command capture, and non-zero exit-code propagation.
+Tests cover information retention, reduction targets, ANSI cleanup, filter selection, command capture, SQLite persistence, dashboard rendering, and non-zero exit-code propagation.
 
 ## Release to npm
 

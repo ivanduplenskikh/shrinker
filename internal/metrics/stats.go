@@ -35,12 +35,28 @@ type StatsRow struct {
 }
 
 type StatsSummary struct {
-	DatabasePath             string         `json:"databasePath"`
-	Total                    StatsRow       `json:"total"`
-	Last7Days                StatsRow       `json:"last7Days"`
-	ByFilter                 []StatsRow     `json:"byFilter"`
-	UncoveredTrackingEnabled bool           `json:"uncoveredTrackingEnabled"`
-	Uncovered                []UncoveredRow `json:"uncovered"`
+	DatabasePath             string            `json:"databasePath"`
+	Total                    StatsRow          `json:"total"`
+	Last7Days                StatsRow          `json:"last7Days"`
+	ByFilter                 []StatsRow        `json:"byFilter"`
+	UncoveredTrackingEnabled bool              `json:"uncoveredTrackingEnabled"`
+	Uncovered                []UncoveredRow    `json:"uncovered"`
+	Daily                    []DailyStatsRow   `json:"daily"`
+	YearlyDaily              []DailyStatsRow   `json:"yearlyDaily"`
+	ByCommand                []CommandStatsRow `json:"byCommand"`
+}
+
+type DailyStatsRow struct {
+	Date                 string `json:"date"`
+	Runs                 int    `json:"runs"`
+	EstimatedTokensSaved int    `json:"estimatedTokensSaved"`
+	ReductionPercent     int    `json:"reductionPercent"`
+}
+type CommandStatsRow struct {
+	Command              string `json:"command"`
+	Calls                int    `json:"calls"`
+	EstimatedTokensSaved int    `json:"estimatedTokensSaved"`
+	ReductionPercent     int    `json:"reductionPercent"`
 }
 
 type UncoveredStatistic struct {
@@ -201,6 +217,58 @@ func GetStats(databasePath string) (StatsSummary, error) {
 		row = makeStatsRow(kind, row.Runs, raw, output, saved)
 		result.ByFilter = append(result.ByFilter, row)
 	}
+	if err := rows.Err(); err != nil {
+		return result, err
+	}
+	result.Daily, err = getDailyStats(database, "30 days")
+	if err != nil {
+		return result, err
+	}
+	result.YearlyDaily, err = getDailyStats(database, "365 days")
+	if err != nil {
+		return result, err
+	}
+	result.ByCommand, err = getCommandStats(database)
+	return result, err
+}
+
+func getDailyStats(database *sql.DB, interval string) ([]DailyStatsRow, error) {
+	rows, err := database.Query("SELECT substr(created_at,1,10), COUNT(*), COALESCE(SUM(raw_estimated_tokens),0), COALESCE(SUM(output_estimated_tokens),0), COALESCE(SUM(estimated_tokens_saved),0) FROM runs WHERE created_at >= datetime('now', ?) GROUP BY substr(created_at,1,10) ORDER BY substr(created_at,1,10) ASC", "-"+interval)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []DailyStatsRow{}
+	for rows.Next() {
+		var date string
+		var runs, raw, output, saved int
+		if err := rows.Scan(&date, &runs, &raw, &output, &saved); err != nil {
+			return nil, err
+		}
+		result = append(result, DailyStatsRow{Date: date, Runs: runs, EstimatedTokensSaved: saved, ReductionPercent: ReductionPercent(raw, output)})
+	}
+	return result, rows.Err()
+}
+
+func getCommandStats(database *sql.DB) ([]CommandStatsRow, error) {
+	rows, err := database.Query("SELECT command_name, COALESCE(command_subcommand,''), COUNT(*), COALESCE(SUM(raw_estimated_tokens),0), COALESCE(SUM(output_estimated_tokens),0), COALESCE(SUM(estimated_tokens_saved),0) FROM runs GROUP BY command_name, command_subcommand ORDER BY COUNT(*) DESC, SUM(estimated_tokens_saved) DESC, command_name ASC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []CommandStatsRow{}
+	for rows.Next() {
+		var name, subcommand string
+		var runs, raw, output, saved int
+		if err := rows.Scan(&name, &subcommand, &runs, &raw, &output, &saved); err != nil {
+			return nil, err
+		}
+		command := name
+		if subcommand != "" {
+			command += " " + subcommand
+		}
+		result = append(result, CommandStatsRow{Command: command, Calls: runs, EstimatedTokensSaved: saved, ReductionPercent: ReductionPercent(raw, output)})
+	}
 	return result, rows.Err()
 }
 
@@ -253,4 +321,26 @@ func FormatCoverage(summary StatsSummary) string {
 		state = "enabled"
 	}
 	return fmt.Sprintf("Shrinker Coverage Gaps\n\nTracking: %s\nUncovered commands: %d\n\nDatabase: %s", state, len(summary.Uncovered), summary.DatabasePath)
+}
+
+func FormatStatsChart(summary StatsSummary) string {
+	lines := []string{"Shrinker Token Savings - Last 30 Days", "====================================="}
+	if len(summary.Daily) == 0 {
+		return strings.Join(append(lines, "No recorded runs in the last 30 days."), "\n")
+	}
+	maxSaved := 1
+	for _, row := range summary.Daily {
+		if row.EstimatedTokensSaved > maxSaved {
+			maxSaved = row.EstimatedTokensSaved
+		}
+	}
+	lines = append(lines, "Date         Runs   Saved   Reduction  Activity")
+	for _, row := range summary.Daily {
+		width := int(float64(row.EstimatedTokensSaved) / float64(maxSaved) * 30)
+		if row.EstimatedTokensSaved > 0 && width == 0 {
+			width = 1
+		}
+		lines = append(lines, fmt.Sprintf("%-10s  %5d  %6d  %8d%%  %s%s", row.Date, row.Runs, row.EstimatedTokensSaved, row.ReductionPercent, strings.Repeat("#", width), strings.Repeat("-", 30-width)))
+	}
+	return strings.Join(lines, "\n")
 }
