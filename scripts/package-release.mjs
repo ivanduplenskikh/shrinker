@@ -106,7 +106,18 @@ await rm(stageDir, { recursive: true, force: true });
 await mkdir(path.dirname(binaryPath), { recursive: true });
 await mkdir(releaseDir, { recursive: true });
 
-run(process.execPath, [path.join(repoRoot, "node_modules", "@yao-pkg", "pkg", "lib-es5", "bin.js"), entrypoint, "--targets", target.pkg, "--output", binaryPath]);
+run(process.execPath, [
+  path.join(repoRoot, "node_modules", "@yao-pkg", "pkg", "lib-es5", "bin.js"),
+  entrypoint,
+  "--targets",
+  target.pkg,
+  "--output",
+  binaryPath,
+  "--no-bytecode",
+  "--public",
+  "--public-packages",
+  "*",
+]);
 await copySupportFiles(stageDir);
 await writeFile(
   path.join(stageDir, "manifest.json"),
