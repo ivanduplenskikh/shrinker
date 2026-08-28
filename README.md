@@ -16,9 +16,9 @@ this POC proves that a few conservative, deterministic filters can save useful c
 
 ## Quick start
 
-The recommended customer install downloads a standalone Go binary from GitHub Releases.
+The recommended customer install downloads a standalone binary from GitHub Releases.
 
-Contributor builds and local installs use Go 1.26 or newer. Customer installs use the standalone Go binary and require neither Node.js nor npm.
+Contributor builds and local installs use Go 1.26 or newer. Customer installs use the standalone binary.
 
 ### One-command install (macOS zsh)
 
@@ -401,7 +401,7 @@ The repository is a Go module. The CLI and dashboard server live under `cmd/` an
 └── tests/fixtures/             reusable output fixtures
 ```
 
-The Go dashboard is rendered as a self-contained HTML file and served locally when requested. It has no Node.js runtime or build dependency.
+The dashboard is rendered as self-contained HTML and served locally when requested.
 
 | Command | Purpose |
 | --- | --- |
