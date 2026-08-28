@@ -18,6 +18,18 @@ func Apply(input string, requested Kind, options Options) Result {
 		kind = Detect(options.Command)
 	}
 	switch kind {
+	case "git-status":
+		return applyGitStatus(input, options)
+	case "git-diff":
+		return applyGitDiff(input, options)
+	case "git-log":
+		return applyGitLog(input, options)
+	case "npm":
+		return applyNpm(input, options)
+	case "docker", "kubectl", "gh":
+		return applyStructuredFamily(input, options, kind)
+	case "test":
+		return applyTest(input, options)
 	case "cat":
 		return lineLimited(input, kind, options)
 	case "tail":
@@ -63,6 +75,13 @@ func Detect(command []string) Kind {
 		}
 	}
 	switch executable {
+	case "npm", "pnpm", "yarn":
+		for _, part := range command[1:] {
+			if strings.EqualFold(part, "test") {
+				return "test"
+			}
+		}
+		return "npm"
 	case "tail":
 		return "tail"
 	case "find":
@@ -71,6 +90,15 @@ func Detect(command []string) Kind {
 		return "rg"
 	case "cat":
 		return "cat"
+	case "docker":
+		return "docker"
+	case "kubectl":
+		return "kubectl"
+	case "gh":
+		return "gh"
+	}
+	if strings.Contains(strings.ToLower(strings.Join(command, " ")), "test") {
+		return "test"
 	}
 	return KindLog
 }

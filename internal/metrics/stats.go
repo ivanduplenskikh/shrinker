@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/ivanduplenskikh/shrinker/internal/config"
 	_ "modernc.org/sqlite"
@@ -33,10 +35,33 @@ type StatsRow struct {
 }
 
 type StatsSummary struct {
-	DatabasePath string     `json:"databasePath"`
-	Total        StatsRow   `json:"total"`
-	Last7Days    StatsRow   `json:"last7Days"`
-	ByFilter     []StatsRow `json:"byFilter"`
+	DatabasePath             string         `json:"databasePath"`
+	Total                    StatsRow       `json:"total"`
+	Last7Days                StatsRow       `json:"last7Days"`
+	ByFilter                 []StatsRow     `json:"byFilter"`
+	UncoveredTrackingEnabled bool           `json:"uncoveredTrackingEnabled"`
+	Uncovered                []UncoveredRow `json:"uncovered"`
+}
+
+type UncoveredStatistic struct {
+	Source             string
+	Reason             UncoveredReason
+	Executable         string
+	Subcommand         string
+	RawBytes           int
+	RawEstimatedTokens int
+	ExitCode           *int
+}
+type UncoveredRow struct {
+	Command         string   `json:"command"`
+	Executable      string   `json:"executable"`
+	Subcommand      string   `json:"subcommand,omitempty"`
+	Occurrences     int      `json:"occurrences"`
+	EstimatedTokens int      `json:"estimatedTokens"`
+	AverageTokens   int      `json:"averageTokens"`
+	Reasons         []string `json:"reasons"`
+	Sources         []string `json:"sources"`
+	LastSeen        string   `json:"lastSeen"`
 }
 
 func DefaultStatsPath() string {
@@ -68,6 +93,14 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE INDEX IF NOT EXISTS runs_created_at_idx ON runs(created_at);
 CREATE INDEX IF NOT EXISTS runs_filter_kind_idx ON runs(filter_kind);
+CREATE TABLE IF NOT EXISTS uncovered_commands (
+ id INTEGER PRIMARY KEY, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ source TEXT NOT NULL, reason TEXT NOT NULL, executable TEXT NOT NULL,
+ subcommand TEXT, raw_bytes INTEGER NOT NULL DEFAULT 0,
+ raw_estimated_tokens INTEGER NOT NULL DEFAULT 0, exit_code INTEGER
+);
+CREATE INDEX IF NOT EXISTS uncovered_created_at_idx ON uncovered_commands(created_at);
+CREATE INDEX IF NOT EXISTS uncovered_command_idx ON uncovered_commands(executable, subcommand);
 `)
 	if err != nil {
 		database.Close()
@@ -89,13 +122,62 @@ func RecordRun(stat RunStatistic, databasePath string) error {
 	return err
 }
 
+func RecordUncovered(stat UncoveredStatistic, databasePath string) error {
+	if !CoverageEnabled() {
+		return nil
+	}
+	executable := SanitizeToken(stat.Executable)
+	if executable == "" {
+		return nil
+	}
+	database, err := openDatabase(databasePath)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+	_, err = database.Exec(`INSERT INTO uncovered_commands (source, reason, executable, subcommand, raw_bytes, raw_estimated_tokens, exit_code) VALUES (?, ?, ?, ?, ?, ?, ?)`, stat.Source, stat.Reason, executable, nullable(SanitizeToken(stat.Subcommand)), max(0, stat.RawBytes), max(0, stat.RawEstimatedTokens), stat.ExitCode)
+	return err
+}
+
+func GetCoverageStats(databasePath string) ([]UncoveredRow, error) {
+	database, err := openDatabase(databasePath)
+	if err != nil {
+		return nil, err
+	}
+	defer database.Close()
+	rows, err := database.Query(`SELECT executable, COALESCE(subcommand,''), COUNT(*), COALESCE(SUM(raw_estimated_tokens),0), COALESCE(GROUP_CONCAT(DISTINCT reason),''), COALESCE(GROUP_CONCAT(DISTINCT source),''), COALESCE(MAX(created_at),'') FROM uncovered_commands GROUP BY executable, subcommand ORDER BY SUM(raw_estimated_tokens) DESC, COUNT(*) DESC, executable ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []UncoveredRow{}
+	for rows.Next() {
+		var executable, subcommand, reasons, sources, last string
+		var occurrences, estimated int
+		if err := rows.Scan(&executable, &subcommand, &occurrences, &estimated, &reasons, &sources, &last); err != nil {
+			return nil, err
+		}
+		row := UncoveredRow{Executable: executable, Occurrences: occurrences, EstimatedTokens: estimated, AverageTokens: (estimated + occurrences/2) / occurrences, Reasons: sortedParts(reasons), Sources: sortedParts(sources), LastSeen: last, Command: executable}
+		if subcommand != "" {
+			row.Subcommand = subcommand
+			row.Command += " " + subcommand
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
 func GetStats(databasePath string) (StatsSummary, error) {
 	database, err := openDatabase(databasePath)
 	if err != nil {
 		return StatsSummary{}, err
 	}
 	defer database.Close()
-	result := StatsSummary{DatabasePath: databasePath, ByFilter: []StatsRow{}}
+	result := StatsSummary{DatabasePath: databasePath, ByFilter: []StatsRow{}, UncoveredTrackingEnabled: CoverageEnabled()}
+	result.Uncovered, err = GetCoverageStats(databasePath)
+	if err != nil {
+		return result, err
+	}
 	result.Total, err = aggregate(database, "SELECT COUNT(*), COALESCE(SUM(raw_estimated_tokens),0), COALESCE(SUM(output_estimated_tokens),0), COALESCE(SUM(estimated_tokens_saved),0) FROM runs", "all")
 	if err != nil {
 		return result, err
@@ -149,10 +231,26 @@ func boolInt(value bool) int {
 	}
 	return 0
 }
+func sortedParts(value string) []string {
+	if value == "" {
+		return []string{}
+	}
+	parts := strings.Split(value, ",")
+	sort.Strings(parts)
+	return parts
+}
 func FormatStats(summary StatsSummary) string {
 	return fmt.Sprintf("Shrinker Token Savings Dashboard\n\nAll time: %d runs | est. %d tokens saved | -%d%%\nLast 7 days: %d runs | est. %d tokens saved | -%d%%\n\nDatabase: %s", summary.Total.Runs, summary.Total.EstimatedTokensSaved, summary.Total.ReductionPercent, summary.Last7Days.Runs, summary.Last7Days.EstimatedTokensSaved, summary.Last7Days.ReductionPercent, summary.DatabasePath)
 }
 func FormatStatsJSON(summary StatsSummary) (string, error) {
 	encoded, err := json.MarshalIndent(summary, "", "  ")
 	return string(encoded), err
+}
+
+func FormatCoverage(summary StatsSummary) string {
+	state := "disabled"
+	if summary.UncoveredTrackingEnabled {
+		state = "enabled"
+	}
+	return fmt.Sprintf("Shrinker Coverage Gaps\n\nTracking: %s\nUncovered commands: %d\n\nDatabase: %s", state, len(summary.Uncovered), summary.DatabasePath)
 }

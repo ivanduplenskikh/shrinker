@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/ivanduplenskikh/shrinker/internal/dashboard"
 	"github.com/ivanduplenskikh/shrinker/internal/execution"
 	"github.com/ivanduplenskikh/shrinker/internal/filters"
 	"github.com/ivanduplenskikh/shrinker/internal/metrics"
@@ -17,6 +18,9 @@ const usage = `Usage:
   shrinker exec [--] <command> [args...]
 	shrinker pipe [--kind log] [--max-lines <number>]
 	shrinker stats [--json]
+		shrinker stats [--chart]
+			shrinker stats --dashboard [--dashboard-server] [--port <number>]
+	shrinker track --executable <name> [--subcommand <name>] [--bytes <number>] [--exit-code <number>]
 	shrinker last
 	shrinker raw <capture-id>
   shrinker help
@@ -30,7 +34,7 @@ func main() {
 	}
 
 	mode := "exec"
-	if args[0] == "last" || args[0] == "raw" {
+	if args[0] == "last" || args[0] == "raw" || args[0] == "track" {
 		mode = args[0]
 		args = args[1:]
 	} else if args[0] == "stats" {
@@ -45,7 +49,16 @@ func main() {
 	raw := false
 	showMetrics := false
 	jsonOutput := false
+	chartOutput := false
+	dashboardOutput, dashboardServer := false, false
+	dashboardPort := 4317
 	showPath := false
+	noStats := false
+	noSave := false
+	coverage := false
+	trackExecutable, trackSubcommand := "", ""
+	trackBytes, trackExitCode := 0, 0
+	hasTrackBytes, hasTrackExitCode := false, false
 	kind := filters.KindAuto
 	maxLines := 120
 	perFileLines := 40
@@ -57,6 +70,33 @@ func main() {
 			}
 			jsonOutput = true
 			args = args[1:]
+		case "--chart":
+			if mode != "stats" {
+				fail("--chart is only supported by stats")
+			}
+			chartOutput = true
+			args = args[1:]
+		case "--dashboard":
+			if mode != "stats" {
+				fail("--dashboard is only supported by stats")
+			}
+			dashboardOutput = true
+			args = args[1:]
+		case "--dashboard-server":
+			if mode != "stats" {
+				fail("--dashboard-server is only supported by stats")
+			}
+			dashboardServer = true
+			args = args[1:]
+		case "--port":
+			if mode != "stats" || len(args) < 2 {
+				fail("--port requires a value")
+			}
+			parsed, err := strconv.Atoi(args[1])
+			if err != nil || parsed <= 0 {
+				fail("--port requires a positive integer")
+			}
+			dashboardPort, args = parsed, args[2:]
 		case "--path":
 			if mode != "last" && mode != "raw" {
 				fail("--path is only supported by last or raw")
@@ -66,6 +106,46 @@ func main() {
 		case "--raw":
 			raw = true
 			args = args[1:]
+		case "--no-stats":
+			noStats = true
+			args = args[1:]
+		case "--no-save":
+			noSave = true
+			args = args[1:]
+		case "--coverage":
+			if mode != "stats" {
+				fail("--coverage is only supported by stats")
+			}
+			coverage = true
+			args = args[1:]
+		case "--executable":
+			if mode != "track" || len(args) < 2 {
+				fail("--executable requires a value")
+			}
+			trackExecutable, args = args[1], args[2:]
+		case "--subcommand":
+			if mode != "track" || len(args) < 2 {
+				fail("--subcommand requires a value")
+			}
+			trackSubcommand, args = args[1], args[2:]
+		case "--bytes":
+			if mode != "track" || len(args) < 2 {
+				fail("--bytes requires a value")
+			}
+			parsed, err := strconv.Atoi(args[1])
+			if err != nil || parsed < 0 {
+				fail("--bytes requires a non-negative integer")
+			}
+			trackBytes, hasTrackBytes, args = parsed, true, args[2:]
+		case "--exit-code":
+			if mode != "track" || len(args) < 2 {
+				fail("--exit-code requires a value")
+			}
+			parsed, err := strconv.Atoi(args[1])
+			if err != nil {
+				fail("--exit-code requires an integer")
+			}
+			trackExitCode, hasTrackExitCode, args = parsed, true, args[2:]
 		case "--metrics":
 			showMetrics = true
 			args = args[1:]
@@ -103,6 +183,23 @@ func main() {
 		}
 	}
 optionsDone:
+	if mode == "track" {
+		if trackExecutable == "" || len(args) != 0 {
+			fail("track requires --executable")
+		}
+		var exitCode *int
+		if hasTrackExitCode {
+			exitCode = &trackExitCode
+		}
+		rawTokens := 0
+		if hasTrackBytes {
+			rawTokens = (trackBytes + 3) / 4
+		}
+		if err := metrics.RecordUncovered(metrics.UncoveredStatistic{Source: "shell", Reason: metrics.ReasonUnlistedSubcommand, Executable: trackExecutable, Subcommand: trackSubcommand, RawBytes: trackBytes, RawEstimatedTokens: rawTokens, ExitCode: exitCode}, metrics.DefaultStatsPath()); err != nil {
+			fail(err.Error())
+		}
+		return
+	}
 	if mode == "last" || mode == "raw" {
 		if len(args) > 1 || (mode == "raw" && len(args) == 0) || (mode == "last" && len(args) != 0) {
 			fail(mode + " has invalid arguments")
@@ -132,7 +229,27 @@ optionsDone:
 		if err != nil {
 			fail(err.Error())
 		}
-		if jsonOutput {
+		if dashboardOutput {
+			html, err := dashboard.Render(summary)
+			if err != nil {
+				fail(err.Error())
+			}
+			path := filepath.Join(filepath.Dir(summary.DatabasePath), "dashboard.html")
+			if err := os.WriteFile(path, []byte(html), 0o600); err != nil {
+				fail(err.Error())
+			}
+			fmt.Printf("Dashboard written to %s\n", path)
+			if dashboardServer {
+				fmt.Printf("Dashboard server running at http://127.0.0.1:%d\n", dashboardPort)
+				if err := dashboard.Serve(func() (metrics.StatsSummary, error) { return metrics.GetStats(metrics.DefaultStatsPath()) }, dashboardPort); err != nil {
+					fail(err.Error())
+				}
+			}
+		} else if coverage {
+			fmt.Println(metrics.FormatCoverage(summary))
+		} else if chartOutput {
+			fmt.Println(metrics.FormatStatsChart(summary))
+		} else if jsonOutput {
 			output, err := metrics.FormatStatsJSON(summary)
 			if err != nil {
 				fail(err.Error())
@@ -164,14 +281,16 @@ optionsDone:
 	if filterKind == filters.KindAuto {
 		filterKind = filters.Detect(args)
 	}
-	if err := metrics.RecordRun(metrics.RunStatistic{
-		Mode: "exec", FilterKind: string(filterKind), CommandName: filepath.Base(args[0]),
-		Measurements: measurements, DurationMs: result.DurationMs, Omitted: omitted,
-		ExitCode: &result.ExitCode,
-	}, metrics.DefaultStatsPath()); err != nil {
-		fmt.Fprintf(os.Stderr, "[shrinker] could not record stats: %v\n", err)
+	if !noStats {
+		if err := metrics.RecordRun(metrics.RunStatistic{
+			Mode: "exec", FilterKind: string(filterKind), CommandName: filepath.Base(args[0]),
+			Measurements: measurements, DurationMs: result.DurationMs, Omitted: omitted,
+			ExitCode: &result.ExitCode,
+		}, metrics.DefaultStatsPath()); err != nil {
+			fmt.Fprintf(os.Stderr, "[shrinker] could not record stats: %v\n", err)
+		}
 	}
-	if omitted && !raw {
+	if omitted && !raw && !noSave {
 		capture, err := execution.SaveRawOutput(result.Combined, args, execution.DefaultRawDirectory())
 		if err == nil {
 			fmt.Fprintf(os.Stderr, "[full: shrinker raw %s]\n", capture.ID)
