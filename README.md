@@ -419,11 +419,14 @@ The repository is a Go module. The CLI and dashboard server live under `cmd/` an
 
 The dashboard is rendered as self-contained HTML and served locally when requested.
 
+The dashboard UI is built separately with React and HeroUI during release CI. The production HTML, CSS, and JavaScript are copied into `internal/dashboard/ui/` and embedded into the Go binary, so installed users do not need Node.js.
+
 | Command | Purpose |
 | --- | --- |
 | `go run ./cmd/shrinker` | Run the CLI from source |
 | `go test ./...` | Run Go tests |
 | `go vet ./...` | Run static checks |
+| `npm ci --prefix packages/dashboard-ui; npm run build --prefix packages/dashboard-ui` | Build the dashboard UI |
 | `go run ./cmd/release --target linux-x64 --version 0.12.0` | Build a release archive |
 
 Release builds use the Go packager and embed the Go-owned dashboard directly in the binary.

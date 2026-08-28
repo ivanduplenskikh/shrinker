@@ -39,6 +39,21 @@ jobs:
         with:
           go-version: "1.26"
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build dashboard UI
+        working-directory: packages/dashboard-ui
+        run: npm ci && npm run typecheck && npm run build
+
+      - name: Embed dashboard UI
+        run: |
+          cp packages/dashboard-ui/dist/index.html internal/dashboard/ui/app.html
+          cp packages/dashboard-ui/dist/assets/index.css internal/dashboard/ui/assets/app.css
+          cp packages/dashboard-ui/dist/assets/dashboard.js internal/dashboard/ui/assets/dashboard.js
+
       - name: Test
         run: go test ./...
 
