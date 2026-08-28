@@ -399,7 +399,7 @@ Output volume is measured in the shell integration only when stdout is redirecte
 ## Demo
 
 ```powershell
-npm run demo
+go run ./cmd/demo
 ```
 
 Current representative fixtures:
