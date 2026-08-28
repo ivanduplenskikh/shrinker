@@ -142,11 +142,13 @@ func uninstall(args []string) {
 	flags.Parse(args)
 	binDir := filepath.Join(*installDir, "bin")
 	if !*skipProfile {
-		if err := removeBlock(*profile, pathBlockStart(), pathBlockEnd()); err != nil {
-			fail(err.Error())
-		}
-		if err := removeBlock(*profile, blockStart, blockEnd); err != nil {
-			fail(err.Error())
+		for _, profilePath := range profilePaths(*profile) {
+			if err := removeBlock(profilePath, pathBlockStart(), pathBlockEnd()); err != nil {
+				fail(err.Error())
+			}
+			if err := removeBlock(profilePath, blockStart, blockEnd); err != nil {
+				fail(err.Error())
+			}
 		}
 	}
 	if err := os.RemoveAll(binDir); err != nil {
@@ -452,6 +454,25 @@ func defaultProfile() string {
 		return filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1")
 	}
 	return filepath.Join(home, ".zshrc")
+}
+func profilePaths(profile string) []string {
+	paths := []string{profile}
+	if runtime.GOOS == "windows" {
+		home, _ := os.UserHomeDir()
+		paths = append(paths,
+			filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
+			filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
+		)
+	}
+	result := []string{}
+	seen := map[string]bool{}
+	for _, path := range paths {
+		if path != "" && !seen[path] {
+			seen[path] = true
+			result = append(result, path)
+		}
+	}
+	return result
 }
 func profileFile() string {
 	if runtime.GOOS == "windows" {
