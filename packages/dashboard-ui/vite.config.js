@@ -46,10 +46,15 @@ export default defineConfig({
     rollupOptions: {
       input: "index.html",
       output: {
-        inlineDynamicImports: true,
         entryFileNames: "assets/dashboard.js",
         chunkFileNames: "assets/[name].js",
-        assetFileNames: "assets/[name][extname]"
+        assetFileNames: "assets/[name][extname]",
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("recharts") || id.includes("d3-")) return "charts";
+            if (id.includes("react") || id.includes("@base-ui") || id.includes("@radix-ui")) return "vendor";
+          }
+        },
       }
     }
   }
