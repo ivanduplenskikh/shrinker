@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/ivanduplenskikh/shrinker/internal/execution"
@@ -16,6 +17,8 @@ const usage = `Usage:
   shrinker exec [--] <command> [args...]
 	shrinker pipe [--kind log] [--max-lines <number>]
 	shrinker stats [--json]
+	shrinker last
+	shrinker raw <capture-id>
   shrinker help
 `
 
@@ -27,7 +30,10 @@ func main() {
 	}
 
 	mode := "exec"
-	if args[0] == "stats" {
+	if args[0] == "last" || args[0] == "raw" {
+		mode = args[0]
+		args = args[1:]
+	} else if args[0] == "stats" {
 		mode = "stats"
 		args = args[1:]
 	} else if args[0] == "pipe" {
@@ -39,6 +45,7 @@ func main() {
 	raw := false
 	showMetrics := false
 	jsonOutput := false
+	showPath := false
 	kind := filters.KindAuto
 	maxLines := 120
 	perFileLines := 40
@@ -49,6 +56,12 @@ func main() {
 				fail("--json is only supported by stats")
 			}
 			jsonOutput = true
+			args = args[1:]
+		case "--path":
+			if mode != "last" && mode != "raw" {
+				fail("--path is only supported by last or raw")
+			}
+			showPath = true
 			args = args[1:]
 		case "--raw":
 			raw = true
@@ -83,13 +96,34 @@ func main() {
 			perFileLines = parsed
 			args = args[2:]
 		default:
-			if mode == "exec" && !startsOption(args[0]) {
+			if (mode == "exec" || mode == "raw") && !startsOption(args[0]) {
 				goto optionsDone
 			}
 			fail("unknown option: " + args[0])
 		}
 	}
 optionsDone:
+	if mode == "last" || mode == "raw" {
+		if len(args) > 1 || (mode == "raw" && len(args) == 0) || (mode == "last" && len(args) != 0) {
+			fail(mode + " has invalid arguments")
+		}
+		var capture execution.RawCapture
+		var err error
+		if mode == "last" {
+			capture, err = execution.GetLatestRawOutput(execution.DefaultRawDirectory())
+		} else {
+			capture, err = execution.GetRawOutput(args[0], execution.DefaultRawDirectory())
+		}
+		if err != nil {
+			fail("raw capture not found")
+		}
+		if showPath {
+			fmt.Println(capture.Path)
+		} else {
+			fmt.Fprint(os.Stdout, capture.Output)
+		}
+		return
+	}
 	if mode == "stats" {
 		if len(args) != 0 {
 			fail("stats does not accept command arguments")
@@ -125,7 +159,24 @@ optionsDone:
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	render(result.Combined, raw, showMetrics, kind, maxLines, perFileLines, result.DurationMs, args)
+	omitted, measurements := render(result.Combined, raw, showMetrics, kind, maxLines, perFileLines, result.DurationMs, args)
+	filterKind := kind
+	if filterKind == filters.KindAuto {
+		filterKind = filters.Detect(args)
+	}
+	if err := metrics.RecordRun(metrics.RunStatistic{
+		Mode: "exec", FilterKind: string(filterKind), CommandName: filepath.Base(args[0]),
+		Measurements: measurements, DurationMs: result.DurationMs, Omitted: omitted,
+		ExitCode: &result.ExitCode,
+	}, metrics.DefaultStatsPath()); err != nil {
+		fmt.Fprintf(os.Stderr, "[shrinker] could not record stats: %v\n", err)
+	}
+	if omitted && !raw {
+		capture, err := execution.SaveRawOutput(result.Combined, args, execution.DefaultRawDirectory())
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "[full: shrinker raw %s]\n", capture.ID)
+		}
+	}
 	if result.ExitCode != 0 {
 		os.Exit(result.ExitCode)
 	}
@@ -136,13 +187,15 @@ func renderPipe(raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines
 	if err != nil {
 		fail(err.Error())
 	}
-	render(input, raw, showMetrics, kind, maxLines, perFileLines, 0, nil)
+	_, _ = render(input, raw, showMetrics, kind, maxLines, perFileLines, 0, nil)
 }
 
-func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines int, durationMs int64, command []string) {
+func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines int, durationMs int64, command []string) (bool, metrics.Measurements) {
 	output := input
+	omitted := false
 	if !raw {
 		result := filters.Apply(input, kind, filters.Options{MaxLines: maxLines, PerFileLines: perFileLines, Command: command})
+		omitted = result.Omitted
 		comparison := metrics.Measure(input, result.Output)
 		if comparison.OutputBytes < comparison.RawBytes && comparison.OutputEstimatedTokens < comparison.RawEstimatedTokens {
 			output = result.Output
@@ -152,6 +205,7 @@ func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines, pe
 		}
 	}
 	fmt.Fprintln(os.Stdout, output)
+	return omitted && output != input, metrics.Measure(input, output)
 }
 
 func readInput() (string, error) {
