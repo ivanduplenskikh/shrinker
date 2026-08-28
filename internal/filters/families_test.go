@@ -59,12 +59,13 @@ func TestAutoDetectionCoversCommandFamilies(t *testing.T) {
 		"git branch":  Detect([]string{"git", "branch"}),
 		"npm install": Detect([]string{"npm", "install"}),
 		"npm test":    Detect([]string{"npm", "test"}),
+		"go test":     Detect([]string{"go", "test", "./..."}),
 		"docker ps":   Detect([]string{"docker", "ps"}),
 		"kubectl get": Detect([]string{"kubectl", "get", "pods"}),
 		"gh pr":       Detect([]string{"gh", "pr", "list"}),
 		"rg":          Detect([]string{"rg", "TODO", "src"}),
 	}
-	want := map[string]Kind{"git status": "git-status", "git branch": "git-list", "npm install": "npm", "npm test": "test", "docker ps": "docker", "kubectl get": "kubectl", "gh pr": "gh", "rg": "rg"}
+	want := map[string]Kind{"git status": "git-status", "git branch": "git-list", "npm install": "npm", "npm test": "test", "go test": "test", "docker ps": "docker", "kubectl get": "kubectl", "gh pr": "gh", "rg": "rg"}
 	for name, got := range tests {
 		if got != want[name] {
 			t.Errorf("%s = %q, want %q", name, got, want[name])

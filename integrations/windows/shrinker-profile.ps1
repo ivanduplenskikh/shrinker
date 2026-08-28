@@ -68,6 +68,11 @@ function Use-ShrinkRouting {
 }
 
 function Get-ShrinkCommandPath {
+    $installed = Join-Path $HOME ".shrinker\bin\shrinker.exe"
+    if (Test-Path -LiteralPath $installed) {
+        return $installed
+    }
+
     $candidates = Get-Command shrinker -All -ErrorAction SilentlyContinue
     if (-not $candidates) {
         return $null
@@ -75,13 +80,13 @@ function Get-ShrinkCommandPath {
 
     foreach ($candidate in $candidates) {
         $source = [string]$candidate.Source
-        if ($source -and $source.ToLowerInvariant().EndsWith(".cmd")) {
+        if ($source -and $source.ToLowerInvariant().EndsWith(".exe")) {
             return $source
         }
     }
     foreach ($candidate in $candidates) {
         $source = [string]$candidate.Source
-        if ($source -and $source.ToLowerInvariant().EndsWith(".exe")) {
+        if ($source -and $source.ToLowerInvariant().EndsWith(".cmd")) {
             return $source
         }
     }

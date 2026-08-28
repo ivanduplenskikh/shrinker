@@ -252,7 +252,6 @@ The default rules are:
 git status  -> shrinker git status
 git diff    -> shrinker git diff
 git log     -> shrinker git log
-npm test    -> shrinker npm test
 docker ps   -> shrinker docker ps
 kubectl get -> shrinker kubectl get
 gh pr list  -> shrinker gh pr list
@@ -340,7 +339,7 @@ Both the CLI and the shell integration read `~/.shrinker/config`; the shell prof
 Two kinds of gaps are recorded:
 
 - `no-filter` / `low-reduction` — the command ran through shrinker, but no filter matched it, or the matching filter barely reduced the output.
-- `unlisted-subcommand` — the shell integration shadows the executable, but the subcommand is outside the routing allowlist, so the native binary ran instead (`git blame`, `docker inspect`, `npm run build`).
+- `unlisted-subcommand` — the shell integration shadows the executable, but the subcommand is outside the routing allowlist, so the native binary ran instead (`git blame`, `docker inspect`).
 
 Read the results with:
 
