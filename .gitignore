@@ -9,3 +9,4 @@ coverage/
 CLAUDE.md
 
 internal/dashboard/ui/
+.playwright-mcp/
