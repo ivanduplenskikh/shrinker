@@ -56,6 +56,7 @@ type CommandStatsRow struct {
 	Command              string `json:"command"`
 	FilterKind           string `json:"filterKind"`
 	Calls                int    `json:"calls"`
+	RawEstimatedTokens   int    `json:"rawEstimatedTokens"`
 	EstimatedTokensSaved int    `json:"estimatedTokensSaved"`
 	ReductionPercent     int    `json:"reductionPercent"`
 }
@@ -268,7 +269,7 @@ func getCommandStats(database *sql.DB) ([]CommandStatsRow, error) {
 		if subcommand != "" {
 			command += " " + subcommand
 		}
-		result = append(result, CommandStatsRow{Command: command, FilterKind: filterKind, Calls: runs, EstimatedTokensSaved: saved, ReductionPercent: ReductionPercent(raw, output)})
+		result = append(result, CommandStatsRow{Command: command, FilterKind: filterKind, Calls: runs, RawEstimatedTokens: raw, EstimatedTokensSaved: saved, ReductionPercent: ReductionPercent(raw, output)})
 	}
 	return result, rows.Err()
 }

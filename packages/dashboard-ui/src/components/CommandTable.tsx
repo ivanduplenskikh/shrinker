@@ -8,11 +8,14 @@ function formatNumber(value = 0): string {
 export function CommandTable({
   rows,
   uncovered,
+  observedReductionPercent,
 }: {
   rows: CommandStat[];
   uncovered: UncoveredRow[];
+  observedReductionPercent: number;
 }) {
   const totalRows = rows.length + uncovered.length;
+  const estimatedReductionPercent = Math.min(100, Math.max(0, observedReductionPercent));
   return (
     <div className="table-wrap">
       <table className="command-table">
@@ -23,6 +26,9 @@ export function CommandTable({
             <th scope="col">FILTER</th>
             <th className="numeric" scope="col">
               RUNS
+            </th>
+            <th className="numeric" scope="col">
+              ORIGINAL
             </th>
             <th className="numeric" scope="col">
               SAVED
@@ -36,7 +42,7 @@ export function CommandTable({
         <tbody>
           {totalRows === 0 ? (
             <tr>
-              <td colSpan={6}>No command data yet.</td>
+              <td colSpan={7}>No command data yet.</td>
             </tr>
           ) : (
             <>
@@ -51,6 +57,7 @@ export function CommandTable({
                     </Chip>
                   </td>
                   <td className="numeric">{formatNumber(row.calls)}</td>
+                  <td className="numeric">{formatNumber(row.rawEstimatedTokens)}</td>
                   <td className="numeric">{formatNumber(row.estimatedTokensSaved)}</td>
                   <td className="numeric">{row.reductionPercent}%</td>
                   <td>
@@ -72,8 +79,19 @@ export function CommandTable({
                     <span className="table-detail">{row.reasons.join(", ")}</span>
                   </td>
                   <td className="numeric">{formatNumber(row.occurrences)}</td>
-                  <td className="numeric">-</td>
-                  <td className="numeric">-</td>
+                  <td className="numeric">{formatNumber(row.estimatedTokens)}</td>
+                  <td
+                    className="numeric estimated-value"
+                    title="Estimated from the observed overall reduction"
+                  >
+                    ~{formatNumber(Math.round(row.estimatedTokens * estimatedReductionPercent / 100))}
+                  </td>
+                  <td
+                    className="numeric estimated-value"
+                    title="Estimated from the observed overall reduction"
+                  >
+                    ~{estimatedReductionPercent}%
+                  </td>
                   <td>
                     <Chip size="sm" color="danger" variant="secondary">
                       Needs filter

@@ -7,6 +7,7 @@ export interface CommandStat {
   command: string;
   filterKind: string;
   calls: number;
+  rawEstimatedTokens: number;
   estimatedTokensSaved: number;
   reductionPercent: number;
 }
