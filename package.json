@@ -1,6 +1,6 @@
 {
   "name": "shrinker-ai",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Local deterministic command-output shrinker for coding agents",
   "type": "module",
   "bin": {
