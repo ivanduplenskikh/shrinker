@@ -12,6 +12,18 @@ const execFileAsync = promisify(execFile);
 // Identifies a running server as ours without depending on user-visible copy.
 const DASHBOARD_MARKER = 'name="generator" content="shrinker-dashboard"';
 
+interface PackagedProcess extends NodeJS.Process {
+  pkg?: unknown;
+}
+
+function getCliRelaunchCommand(args: string[]): { command: string; args: string[] } {
+  if ((process as PackagedProcess).pkg || !process.argv[1]) {
+    return { command: process.execPath, args };
+  }
+
+  return { command: process.execPath, args: [process.argv[1], ...args] };
+}
+
 // Neutralizes `</script>` inside string fields so the payload cannot break out of the JSON block.
 function serializePayload(summary: StatsSummary): string {
   const payload = {
@@ -156,11 +168,8 @@ export async function startStatsDashboard(port = 4317, restart = false): Promise
     return { pid: 0, reused: true, restarted: false };
   }
 
-  const child = spawn(
-    process.execPath,
-    [process.argv[1] ?? "", "stats", "--dashboard", "--dashboard-server", "--port", String(port)],
-    { detached: true, stdio: "ignore" },
-  );
+  const command = getCliRelaunchCommand(["stats", "--dashboard", "--dashboard-server", "--port", String(port)]);
+  const child = spawn(command.command, command.args, { detached: true, stdio: "ignore" });
   child.unref();
   return { pid: child.pid ?? 0, reused: false, restarted };
 }

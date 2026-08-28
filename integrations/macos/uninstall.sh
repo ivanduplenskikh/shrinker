@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INSTALL_DIR="${HOME}/.shrinker-src"
+INSTALL_DIR="${SHRINKER_INSTALL_DIR:-$HOME/.shrinker}"
 REMOVE_INSTALL_DIR=0
+USE_NPM=0
 SKIP_UNLINK=0
 SKIP_AGENT_RULES=0
 COPILOT_ONLY=0
@@ -22,6 +23,7 @@ print_step() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --use-npm) USE_NPM=1 ;;
     --skip-unlink) SKIP_UNLINK=1 ;;
     --skip-agent-rules) SKIP_AGENT_RULES=1 ;;
     --copilot-only) COPILOT_ONLY=1 ;;
@@ -52,6 +54,17 @@ remove_profile_integration() {
   [[ -f "$profile_file" ]] || return 0
   awk -v start='# >>> shrinker integration >>>' -v end='# <<< shrinker integration <<<' 'BEGIN{inblock=0} {if(index($0,start)>0){inblock=1;next} if(inblock&&index($0,end)>0){inblock=0;next} if(!inblock)print}' "$profile_file" > "$profile_file.tmp"
   mv "$profile_file.tmp" "$profile_file"
+}
+
+remove_path_integration() {
+  local profile_file="$1"
+  [[ -f "$profile_file" ]] || return 0
+  awk -v start='# >>> shrinker path >>>' -v end='# <<< shrinker path <<<' 'BEGIN{inblock=0} {if(index($0,start)>0){inblock=1;next} if(inblock&&index($0,end)>0){inblock=0;next} if(!inblock)print}' "$profile_file" > "$profile_file.tmp"
+  mv "$profile_file.tmp" "$profile_file"
+}
+
+remove_release_install() {
+  rm -rf "$INSTALL_DIR/bin" "$INSTALL_DIR/integrations" "$INSTALL_DIR/templates" "$INSTALL_DIR/manifest.json"
 }
 
 # The dashboard runs as a detached daemon, so unlinking the package never stops it.
@@ -86,14 +99,18 @@ remove_managed_config() {
 print_step "🛑" "Stopping the dashboard server on port $DASHBOARD_PORT..."
 stop_dashboard_server
 
-if (( SKIP_UNLINK == 0 )); then
+if (( SKIP_UNLINK == 0 && USE_NPM == 1 )); then
   print_step "🔗" "Unlinking shrinker globally..."
   npm unlink --silent --global shrinker-ai
+elif (( SKIP_UNLINK == 0 )); then
+  print_step "🔗" "Removing release-installed shrinker files..."
+  remove_release_install
 else
-  print_step "⏭️" "Skipped global npm unlink."
+  print_step "⏭️" "Skipped unlink/removal."
 fi
 print_step "🔧" "Removing shell profile integration..."
 remove_profile_integration "$PROFILE_PATH"
+remove_path_integration "$PROFILE_PATH"
 if (( SKIP_AGENT_RULES == 0 )); then
   (( CLAUDE_ONLY )) || remove_agent_rules "$HOME/.copilot/copilot-instructions.md"
   (( COPILOT_ONLY )) || remove_agent_rules "$HOME/.claude/CLAUDE.md"

@@ -1,0 +1,66 @@
+name: Release binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win-x64
+            asset: release/shrinker-win-x64.zip
+          - os: macos-14
+            target: macos-arm64
+            asset: release/shrinker-macos-arm64.tar.gz
+          - os: macos-13
+            target: macos-x64
+            asset: release/shrinker-macos-x64.tar.gz
+          - os: ubuntu-latest
+            target: linux-x64
+            asset: release/shrinker-linux-x64.tar.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build --silent
+
+      - name: Test
+        run: node --test "dist/tests/*.test.js"
+
+      - name: Package release archive
+        run: npm run package:release:current -- ${{ matrix.target }}
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: shrinker-${{ matrix.target }}
+          path: ${{ matrix.asset }}
+          if-no-files-found: error
+
+      - name: Attach asset to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ matrix.asset }}

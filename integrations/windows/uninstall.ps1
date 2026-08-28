@@ -1,10 +1,12 @@
 param(
+    [switch]$UseNpm,
     [switch]$SkipUnlink,
     [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
     [switch]$ClaudeOnly,
     [switch]$PurgeData,
     [int]$Port = 4317,
+    [string]$InstallDir = $(Join-Path $HOME ".shrinker"),
     [string]$ProfilePath = $PROFILE,
     [string]$ConfigPath = $(if ($env:SHRINKER_CONFIG_PATH) { $env:SHRINKER_CONFIG_PATH } else { Join-Path $HOME ".shrinker/config" })
 )
@@ -45,6 +47,25 @@ function Remove-ProfileIntegration {
     }
 }
 
+function Remove-UserPathEntry {
+    param([string]$Directory)
+    $currentUserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    if (-not $currentUserPath) { return }
+    $entries = @($currentUserPath -split [IO.Path]::PathSeparator | Where-Object { $_ -and $_ -ne $Directory })
+    $newPath = $entries -join [IO.Path]::PathSeparator
+    if ($newPath -ne $currentUserPath) {
+        [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+        Write-UninstallStep "🧭" "Removed shrinker from the user PATH: $Directory"
+    }
+}
+
+function Remove-ReleaseInstall {
+    foreach ($name in @("bin", "integrations", "templates", "manifest.json")) {
+        Remove-Item -LiteralPath (Join-Path $InstallDir $name) -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Remove-UserPathEntry (Join-Path $InstallDir "bin")
+}
+
 # The dashboard runs as a detached daemon, so unlinking the package never stops it.
 function Stop-DashboardServer {
     param([int]$DashboardPort)
@@ -72,10 +93,14 @@ function Remove-ManagedConfig {
 Write-UninstallStep "🛑" "Stopping the dashboard server on port $Port..."
 Stop-DashboardServer $Port
 
-if (-not $SkipUnlink) {
+if (-not $SkipUnlink -and $UseNpm) {
     Write-UninstallStep "🔗" "Unlinking shrinker globally..."
     & npm unlink --silent --global shrinker-ai
     if ($LASTEXITCODE -ne 0) { throw "npm unlink failed." }
+}
+elseif (-not $SkipUnlink) {
+    Write-UninstallStep "🔗" "Removing release-installed shrinker files..."
+    Remove-ReleaseInstall
 }
 else { Write-UninstallStep "⏭️" "Skipped global npm unlink." }
 Write-UninstallStep "🔧" "Removing PowerShell profile integration..."

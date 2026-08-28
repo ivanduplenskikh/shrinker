@@ -16,12 +16,20 @@ this POC proves that a few conservative, deterministic filters can save useful c
 
 ## Quick start
 
-Requires Node.js 22.13 or newer. This is the first Node 22 release where the built-in SQLite module no longer requires an experimental flag.
+The recommended customer install downloads a standalone binary from GitHub Releases. It does not require npm registry access or a local Node.js installation.
+
+Contributor and npm-based installs still require Node.js 22.13 or newer. This is the first Node 22 release where the built-in SQLite module no longer requires an experimental flag.
 
 ### One-command install (macOS zsh)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/macos/install.sh | bash
+```
+
+To pin a version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/macos/install.sh | bash -s -- --version 0.4.0
 ```
 
 ### One-command install (Windows PowerShell)
@@ -30,11 +38,31 @@ curl -fsSL https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integ
 irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/windows/install.ps1 | iex
 ```
 
-### Install from npm package
+To pin a version:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/windows/install.ps1))) -Version 0.4.0
+```
+
+The installer downloads these anonymous GitHub Release assets by default:
+
+- `shrinker-win-x64.zip`
+- `shrinker-macos-arm64.tar.gz`
+- `shrinker-macos-x64.tar.gz`
+- `shrinker-linux-x64.tar.gz`
+
+Network allowlists need access to `raw.githubusercontent.com` for the installer script and `github.com/ivanduplenskikh/shrinker/releases/download/...` for release assets.
+
+### Optional npm package install
+
+Use this only when npm registry access is available or preferred.
 
 Windows PowerShell:
 
 ```powershell
+pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -UseNpm
+
+# Or manually:
 npm install --global shrinker-ai --registry=https://registry.npmjs.org
 $pkg = Join-Path ((npm root --global).Trim()) "shrinker-ai"
 pwsh -ExecutionPolicy Bypass -File (Join-Path $pkg "integrations\\windows\\install.ps1") -Local -SkipNpmInstall -SkipBuild -SkipLink
@@ -45,6 +73,9 @@ To enable automatic PowerShell routing, add `-EnableProfileRouting` to the final
 macOS zsh:
 
 ```bash
+bash ./integrations/macos/install.sh --use-npm
+
+# Or manually:
 npm install --global shrinker-ai --registry=https://registry.npmjs.org
 pkg="$(npm root --global)/shrinker-ai"
 bash "$pkg/integrations/macos/install.sh" --local --skip-npm-install --skip-build --skip-link --enable-profile-routing
@@ -75,7 +106,21 @@ The rules tell agents to prefer `shrinker <command>` for high-volume commands wh
 
 ### Uninstall
 
-If you installed from npm, remove the package first:
+GitHub Release binary install:
+
+Windows PowerShell:
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File .\integrations\windows\uninstall.ps1
+```
+
+macOS zsh:
+
+```bash
+bash ./integrations/macos/uninstall.sh
+```
+
+If you installed from npm, use npm mode:
 
 ```bash
 npm uninstall --global shrinker-ai --registry=https://registry.npmjs.org

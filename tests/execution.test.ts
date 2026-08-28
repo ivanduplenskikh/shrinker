@@ -24,7 +24,7 @@ test("Windows alias fallback supports cat and ls", async () => {
 
   const catResult = await runCommand("cat", ["package.json"]);
   assert.equal(catResult.exitCode, 0, catResult.stderr);
-  assert.match(catResult.stdout, /"name"\s*:\s*"shrinker"/);
+  assert.match(catResult.stdout, /"name"\s*:\s*"shrinker-ai"/);
 
   const lsResult = await runCommand("ls", ["src"]);
   assert.equal(lsResult.exitCode, 0, lsResult.stderr);

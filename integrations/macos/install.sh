@@ -4,6 +4,9 @@ set -euo pipefail
 PACKAGE_NAME="shrinker-ai"
 REGISTRY="https://registry.npmjs.org"
 VERSION=""
+USE_NPM=0
+RELEASE_REPO="ivanduplenskikh/shrinker"
+ASSET_BASE_URL=""
 LOCAL=0
 SKIP_NPM_INSTALL=0
 SKIP_BUILD=0
@@ -16,6 +19,7 @@ CLAUDE_ONLY=0
 TRACK_UNCOVERED=""
 PROFILE_PATH="${PROFILE_PATH:-$HOME/.zshrc}"
 CONFIG_PATH="${SHRINKER_CONFIG_PATH:-$HOME/.shrinker/config}"
+INSTALL_DIR="${SHRINKER_INSTALL_DIR:-$HOME/.shrinker}"
 STEP="${SHRINKER_STEP_OFFSET:-0}"
 
 print_message() {
@@ -28,9 +32,13 @@ print_message() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --local) LOCAL=1 ;;
+    --use-npm) USE_NPM=1 ;;
     --package-name) PACKAGE_NAME="${2:-}"; shift ;;
     --registry) REGISTRY="${2:-}"; shift ;;
     --version) VERSION="${2:-}"; shift ;;
+    --release-repo) RELEASE_REPO="${2:-}"; shift ;;
+    --asset-base-url) ASSET_BASE_URL="${2:-}"; shift ;;
+    --install-dir) INSTALL_DIR="${2:-}"; shift ;;
     --skip-npm-install) SKIP_NPM_INSTALL=1 ;;
     --skip-build) SKIP_BUILD=1 ;;
     --skip-link) SKIP_LINK=1 ;;
@@ -83,7 +91,7 @@ if (( interactive && SKIP_PROFILE == 0 && ENABLE_PROFILE_ROUTING == 0 )); then
   ENABLE_PROFILE_ROUTING="$(prompt_yes_no "Enable automatic shell routing?" 0)"
 fi
 
-if (( LOCAL == 0 )); then
+if (( LOCAL == 0 && USE_NPM == 1 )); then
   package_spec="$PACKAGE_NAME"
   [[ -z "$VERSION" ]] || package_spec="$PACKAGE_NAME@$VERSION"
   print_message "📦" "Installing $package_spec from $REGISTRY..."
@@ -112,11 +120,13 @@ INTEGRATION_PATH="$SCRIPT_DIR/shrinker-profile.zsh"
 BLOCK_START="<!-- shrinker agent rules start -->"
 BLOCK_END="<!-- shrinker agent rules end -->"
 
-node_version_raw="$(node -v 2>/dev/null || true)"
-[[ -n "$node_version_raw" ]] || { print_message "❌" "Node.js was not found on PATH. Install Node.js 22.13+ first." >&2; exit 1; }
-node_version="${node_version_raw#v}"
-IFS='.' read -r node_major node_minor _ <<< "$node_version"
-(( node_major > 22 || (node_major == 22 && node_minor >= 13) )) || { print_message "❌" "Node.js 22.13+ is required. Found $node_version_raw" >&2; exit 1; }
+if (( LOCAL == 1 )); then
+  node_version_raw="$(node -v 2>/dev/null || true)"
+  [[ -n "$node_version_raw" ]] || { print_message "❌" "Node.js was not found on PATH. Install Node.js 22.13+ first." >&2; exit 1; }
+  node_version="${node_version_raw#v}"
+  IFS='.' read -r node_major node_minor _ <<< "$node_version"
+  (( node_major > 22 || (node_major == 22 && node_minor >= 13) )) || { print_message "❌" "Node.js 22.13+ is required. Found $node_version_raw" >&2; exit 1; }
+fi
 
 set_agent_rules() {
   local target="$1"
@@ -161,6 +171,19 @@ add_profile_integration() {
   fi
 }
 
+add_path_integration() {
+  local profile_file="$1"
+  mkdir -p "$(dirname "$profile_file")"; touch "$profile_file"
+  if ! grep -Fq '# >>> shrinker path >>>' "$profile_file"; then
+    printf '\n# >>> shrinker path >>>\nexport PATH="%s/bin:$PATH"\n# <<< shrinker path <<<\n\n' "$INSTALL_DIR" >> "$profile_file"
+    print_message "🧭" "Added shrinker to PATH in profile: $profile_file"
+  fi
+  case ":$PATH:" in
+    *":$INSTALL_DIR/bin:"*) ;;
+    *) export PATH="$INSTALL_DIR/bin:$PATH" ;;
+  esac
+}
+
 set_config_value() {
   local key="$1"
   local value="$2"
@@ -174,6 +197,73 @@ set_config_value() {
   printf '%s=%s\n' "$key" "$value" >> "$CONFIG_PATH"
   print_message "⚙️" "Set $key=$value in: $CONFIG_PATH"
 }
+
+release_target() {
+  case "$(uname -s)-$(uname -m)" in
+    Darwin-arm64) printf '%s' "macos-arm64" ;;
+    Darwin-x86_64) printf '%s' "macos-x64" ;;
+    Linux-x86_64) printf '%s' "linux-x64" ;;
+    *) print_message "❌" "Unsupported release platform: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
+  esac
+}
+
+release_asset_url() {
+  local target asset tag
+  target="$(release_target)"
+  asset="shrinker-$target.tar.gz"
+  if [[ -n "$ASSET_BASE_URL" ]]; then
+    printf '%s/%s' "${ASSET_BASE_URL%/}" "$asset"
+  elif [[ -n "$VERSION" ]]; then
+    tag="$VERSION"
+    [[ "$tag" == v* ]] || tag="v$tag"
+    printf 'https://github.com/%s/releases/download/%s/%s' "$RELEASE_REPO" "$tag" "$asset"
+  else
+    printf 'https://github.com/%s/releases/latest/download/%s' "$RELEASE_REPO" "$asset"
+  fi
+}
+
+install_release_package() {
+  local asset_url archive extract_dir name
+  asset_url="$(release_asset_url)"
+  archive="$(mktemp -t shrinker-release.XXXXXX).tar.gz"
+  extract_dir="$(mktemp -d -t shrinker-install.XXXXXX)"
+  trap 'rm -f "$archive"; rm -rf "$extract_dir"' RETURN
+
+  print_message "📦" "Downloading shrinker from: $asset_url"
+  curl -fL "$asset_url" -o "$archive"
+  tar -xzf "$archive" -C "$extract_dir"
+  mkdir -p "$INSTALL_DIR"
+  for name in bin integrations templates; do
+    [[ -d "$extract_dir/$name" ]] || { print_message "❌" "Release archive is missing: $name" >&2; exit 1; }
+    rm -rf "$INSTALL_DIR/$name"
+    cp -R "$extract_dir/$name" "$INSTALL_DIR/"
+  done
+  [[ -f "$extract_dir/manifest.json" ]] && cp "$extract_dir/manifest.json" "$INSTALL_DIR/manifest.json"
+  [[ -x "$INSTALL_DIR/bin/shrinker" ]] || chmod +x "$INSTALL_DIR/bin/shrinker"
+  [[ -x "$INSTALL_DIR/bin/shrinker" ]] || { print_message "❌" "Installed executable not found: $INSTALL_DIR/bin/shrinker" >&2; exit 1; }
+
+  add_path_integration "$PROFILE_PATH"
+  set_config_value "SHRINKER_TRACK_UNCOVERED" "$TRACK_UNCOVERED"
+  if (( SKIP_PROFILE == 0 && ENABLE_PROFILE_ROUTING == 1 )); then add_profile_integration "$PROFILE_PATH"; fi
+  if (( SKIP_AGENT_RULES == 0 )); then
+    [[ -f "$INSTALL_DIR/templates/agent-rules.md" ]] || { print_message "❌" "Agent rules template not found: $INSTALL_DIR/templates/agent-rules.md" >&2; exit 1; }
+    rules_body="$(cat "$INSTALL_DIR/templates/agent-rules.md")"
+    (( CLAUDE_ONLY )) || set_agent_rules "$HOME/.copilot/copilot-instructions.md" "$rules_body"
+    (( COPILOT_ONLY )) || set_agent_rules "$HOME/.claude/CLAUDE.md" "$rules_body"
+  fi
+
+  print_message "✅" "Install complete."
+  echo ""
+  echo "💡 Try: shrinker help"
+}
+
+if (( LOCAL == 0 )); then
+  install_release_package
+  if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
+    return 0
+  fi
+  exit 0
+fi
 
 print_message "📦" "Installing shrinker from: $REPO_ROOT"
 pushd "$REPO_ROOT" >/dev/null

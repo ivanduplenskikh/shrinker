@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .shrinker/
+release/
 coverage/
 .copilot-instructions.md
 CLAUDE.md

@@ -1,8 +1,12 @@
 param(
     [switch]$Local,
+    [switch]$UseNpm,
     [string]$PackageName = "shrinker-ai",
     [string]$Registry = "https://registry.npmjs.org",
     [string]$Version,
+    [string]$ReleaseRepo = "ivanduplenskikh/shrinker",
+    [string]$AssetBaseUrl,
+    [string]$InstallDir = $(Join-Path $HOME ".shrinker"),
     [switch]$SkipNpmInstall,
     [switch]$SkipBuild,
     [switch]$SkipLink,
@@ -99,7 +103,76 @@ function Add-ProfileIntegration {
     Write-InstallStep "🔧" "Added shrinker integration block to profile: $ProfileFile"
 }
 
-if (-not $Local) {
+function Add-UserPathEntry {
+    param([string]$Directory)
+    $currentUserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $entries = @($currentUserPath -split [IO.Path]::PathSeparator | Where-Object { $_ })
+    if ($entries -notcontains $Directory) {
+        $newPath = (@($entries) + $Directory) -join [IO.Path]::PathSeparator
+        [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+        Write-InstallStep "🧭" "Added shrinker to the user PATH: $Directory"
+    }
+    $processEntries = @($env:Path -split [IO.Path]::PathSeparator | Where-Object { $_ })
+    if ($processEntries -notcontains $Directory) {
+        $env:Path = (@($processEntries) + $Directory) -join [IO.Path]::PathSeparator
+    }
+}
+
+function Get-ReleaseAssetUrl {
+    $assetName = "shrinker-win-x64.zip"
+    if ($AssetBaseUrl) { return "$($AssetBaseUrl.TrimEnd('/'))/$assetName" }
+    if ($Version) {
+        $tag = if ($Version.StartsWith("v")) { $Version } else { "v$Version" }
+        return "https://github.com/$ReleaseRepo/releases/download/$tag/$assetName"
+    }
+    return "https://github.com/$ReleaseRepo/releases/latest/download/$assetName"
+}
+
+function Install-ReleasePackage {
+    $assetUrl = Get-ReleaseAssetUrl
+    $archivePath = Join-Path ([IO.Path]::GetTempPath()) "shrinker-win-x64.zip"
+    $extractPath = Join-Path ([IO.Path]::GetTempPath()) ("shrinker-install-" + [guid]::NewGuid().ToString("N"))
+    try {
+        Write-InstallStep "📦" "Downloading shrinker from: $assetUrl"
+        Invoke-WebRequest -Uri $assetUrl -OutFile $archivePath -UseBasicParsing
+        New-Item -ItemType Directory -Force -Path $extractPath | Out-Null
+        Expand-Archive -LiteralPath $archivePath -DestinationPath $extractPath -Force
+
+        foreach ($name in @("bin", "integrations", "templates")) {
+            $source = Join-Path $extractPath $name
+            if (-not (Test-Path -LiteralPath $source)) { throw "Release archive is missing: $name" }
+            Copy-Item -LiteralPath $source -Destination $InstallDir -Recurse -Force
+        }
+        if (Test-Path -LiteralPath (Join-Path $extractPath "manifest.json")) {
+            Copy-Item -LiteralPath (Join-Path $extractPath "manifest.json") -Destination $InstallDir -Force
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $archivePath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    $binPath = Join-Path $InstallDir "bin"
+    $exePath = Join-Path $binPath "shrinker.exe"
+    if (-not (Test-Path -LiteralPath $exePath)) { throw "Installed executable not found: $exePath" }
+    Add-UserPathEntry $binPath
+
+    $templatePath = Join-Path $InstallDir "templates\agent-rules.md"
+    $integrationPath = Join-Path $InstallDir "integrations\windows\shrinker-profile.ps1"
+    if (-not $SkipAgentRules) {
+        if (-not (Test-Path $templatePath)) { throw "Agent rules template not found: $templatePath" }
+        $rulesBody = Get-Content $templatePath -Raw
+    }
+
+    Set-ConfigValue "SHRINKER_TRACK_UNCOVERED" $(if ($TrackUncovered) { "1" } else { "0" })
+    if (-not $SkipProfile -and $EnableProfileRouting) { Add-ProfileIntegration $ProfilePath $integrationPath }
+    if (-not $SkipAgentRules) { Set-AgentRules $rulesBody }
+    Write-InstallStep "✅" "Install complete."
+    Write-Host " "
+    Write-Host "💡 Try: shrinker help"
+}
+
+if (-not $Local -and $UseNpm) {
     $packageSpec = if ($Version) { "$PackageName@$Version" } else { $PackageName }
     Write-InstallStep "📦" "Installing $packageSpec from $Registry..."
     & npm install --silent --global $packageSpec "--registry=$Registry"
@@ -113,6 +186,11 @@ if (-not $Local) {
     Write-InstallStep "⚙️" "Configuring the installed package..."
     & pwsh -ExecutionPolicy Bypass -File $entrypoint -Local -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting:$EnableProfileRouting -SkipProfile:$SkipProfile -SkipAgentRules:$SkipAgentRules -CopilotOnly:$CopilotOnly -ClaudeOnly:$ClaudeOnly -EnableUncoveredTracking:$TrackUncovered -DisableUncoveredTracking:(-not $TrackUncovered) -ProfilePath $ProfilePath -ConfigPath $ConfigPath -StepOffset $InstallStep
     if ($LASTEXITCODE -ne 0) { throw "Repository installer failed with exit code $LASTEXITCODE" }
+    return
+}
+
+if (-not $Local) {
+    Install-ReleasePackage
     return
 }
 

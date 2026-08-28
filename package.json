@@ -17,6 +17,8 @@
     "dashboard": "npm run build --silent && node dist/src/cli.js stats --dashboard",
     "dashboard:restart": "npm run build --silent && node dist/src/cli.js stats --dashboard --restart",
     "pack": "npm run build --silent && npm pack",
+    "package:release": "npm run build --silent && node scripts/package-release.mjs",
+    "package:release:current": "node scripts/package-release.mjs",
     "test": "npm run build --silent && node --test \"dist/tests/*.test.js\"",
     "demo": "npm run build --silent && node dist/demo/run-demo.js",
     "install:local": "pwsh -ExecutionPolicy Bypass -File ./integrations/windows/install.ps1 -Local",
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@yao-pkg/pkg": "^6.22.0",
     "typescript": "^5.9.0"
   },
   "engines": {
