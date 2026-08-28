@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { measure } from "../src/metrics/measure.js";
-import { renderStatsDashboard, writeStatsDashboard } from "../src/metrics/dashboard.js";
+import { getCliRelaunchCommand, renderStatsDashboard, writeStatsDashboard } from "../src/metrics/dashboard.js";
 import { formatStats, formatStatsChart, getStats, recordRun, type StatsSummary } from "../src/metrics/stats-store.js";
 
 function readDashboardPayload(html: string): { summary: StatsSummary; inputCostPerMillionTokens: number } {
@@ -158,6 +158,32 @@ test("dashboard payload cannot break out of its script block", async (context) =
   const html = renderStatsDashboard(summary);
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
   assert.equal(readDashboardPayload(html).summary.byCommand[0]?.command, "</script><script>alert(1)</script>");
+});
+
+test("dashboard relaunch uses the executable directly for packaged snapshot argv", () => {
+  const command = getCliRelaunchCommand(["stats", "--dashboard-server"], {
+    execPath: "C:\\Users\\someone\\.shrinker\\bin\\shrinker.exe",
+    argv: ["C:\\Users\\someone\\.shrinker\\bin\\shrinker.exe", "C:\\snapshot\\shrinker\\dist\\src\\cli.js"],
+    packaged: false,
+  });
+
+  assert.deepEqual(command, {
+    command: "C:\\Users\\someone\\.shrinker\\bin\\shrinker.exe",
+    args: ["stats", "--dashboard-server"],
+  });
+});
+
+test("dashboard relaunch keeps the script path during local node development", () => {
+  const command = getCliRelaunchCommand(["stats", "--dashboard-server"], {
+    execPath: "node",
+    argv: ["node", "dist/src/cli.js"],
+    packaged: false,
+  });
+
+  assert.deepEqual(command, {
+    command: "node",
+    args: ["dist/src/cli.js", "stats", "--dashboard-server"],
+  });
 });
 
 test("databases created before command_subcommand still work", async (context) => {

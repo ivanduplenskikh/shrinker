@@ -1,6 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -16,12 +16,30 @@ interface PackagedProcess extends NodeJS.Process {
   pkg?: unknown;
 }
 
-function getCliRelaunchCommand(args: string[]): { command: string; args: string[] } {
-  if ((process as PackagedProcess).pkg || !process.argv[1]) {
-    return { command: process.execPath, args };
+interface RelaunchRuntime {
+  execPath: string;
+  argv: readonly string[];
+  packaged: boolean;
+}
+
+function isSnapshotPath(value: string | undefined): boolean {
+  return Boolean(value && /(?:^|[\\/])(?:snapshot|snapshot:)(?:[\\/]|$)/i.test(value));
+}
+
+export function getCliRelaunchCommand(
+  args: string[],
+  runtime: RelaunchRuntime = {
+    execPath: process.execPath,
+    argv: process.argv,
+    packaged: Boolean((process as PackagedProcess).pkg),
+  },
+): { command: string; args: string[] } {
+  const scriptPath = runtime.argv[1];
+  if (runtime.packaged || !scriptPath || isSnapshotPath(scriptPath)) {
+    return { command: runtime.execPath, args };
   }
 
-  return { command: process.execPath, args: [process.argv[1], ...args] };
+  return { command: runtime.execPath, args: [scriptPath, ...args] };
 }
 
 // Neutralizes `</script>` inside string fields so the payload cannot break out of the JSON block.
@@ -98,13 +116,43 @@ export function serveStatsDashboard(getSummary: () => StatsSummary, port = 4317)
 
 async function isShrinkerDashboard(url: string): Promise<boolean> {
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(500) });
+    const response = await requestLocal(url);
     if (!response.ok) return false;
-    const body = await response.text();
+    const body = response.body;
     return body.includes(DASHBOARD_MARKER) || body.includes("Shrinker stats");
   } catch {
     return false;
   }
+}
+
+function requestLocal(url: string, method = "GET", timeoutMs = 500): Promise<{ ok: boolean; statusCode: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const request = httpRequest(
+      {
+        hostname: parsed.hostname,
+        port: parsed.port,
+        path: `${parsed.pathname}${parsed.search}`,
+        method,
+        timeout: timeoutMs,
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => {
+          const statusCode = response.statusCode ?? 0;
+          resolve({
+            ok: statusCode >= 200 && statusCode < 300,
+            statusCode,
+            body: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+      },
+    );
+    request.on("error", reject);
+    request.on("timeout", () => request.destroy(new Error(`Timed out connecting to ${url}`)));
+    request.end();
+  });
 }
 
 async function findListeningProcessId(port: number): Promise<number | undefined> {
@@ -150,10 +198,8 @@ export async function startStatsDashboard(port = 4317, restart = false): Promise
   if (restart) {
     let response: Response | undefined;
     try {
-      response = await fetch(`${url}/__shrinker_shutdown`, {
-        method: "POST",
-        signal: AbortSignal.timeout(500),
-      });
+      const shutdown = await requestLocal(`${url}/__shrinker_shutdown`, "POST");
+      response = { ok: shutdown.ok } as Response;
     } catch {}
     if (response && !response.ok) {
       restarted = await stopLegacyDashboardServer(port, url);
@@ -170,6 +216,22 @@ export async function startStatsDashboard(port = 4317, restart = false): Promise
 
   const command = getCliRelaunchCommand(["stats", "--dashboard", "--dashboard-server", "--port", String(port)]);
   const child = spawn(command.command, command.args, { detached: true, stdio: "ignore" });
+  await new Promise<void>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("spawn", resolve);
+  });
   child.unref();
+  if (!(await waitForDashboard(url))) {
+    throw new Error(`Dashboard server did not start at ${url}`);
+  }
   return { pid: child.pid ?? 0, reused: false, restarted };
+}
+
+async function waitForDashboard(url: string, timeoutMs = 3000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await isShrinkerDashboard(url)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
 }
