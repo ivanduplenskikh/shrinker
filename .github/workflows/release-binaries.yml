@@ -49,11 +49,7 @@ jobs:
         run: npm ci && npm run typecheck && npm run build
 
       - name: Embed dashboard UI
-        run: |
-          mkdir -p internal/dashboard/ui/assets
-          cp packages/dashboard-ui/dist/app.html internal/dashboard/ui/app.html
-          cp packages/dashboard-ui/dist/assets/app.css internal/dashboard/ui/assets/app.css
-          cp packages/dashboard-ui/dist/assets/dashboard.js internal/dashboard/ui/assets/dashboard.js
+        run: node scripts/embed-dashboard.mjs
 
       - name: Test
         run: go test ./...

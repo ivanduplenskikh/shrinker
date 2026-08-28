@@ -33,7 +33,7 @@ export default defineConfig({
   build: {
     assetsDir: "assets",
     rollupOptions: {
-      input: "app.html",
+      input: "index.html",
       output: {
         inlineDynamicImports: true,
         entryFileNames: "assets/dashboard.js",
