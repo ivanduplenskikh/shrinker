@@ -17,13 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
+          - os: ubuntu-latest
             target: win-x64
             asset: release/shrinker-win-x64.zip
-          - os: macos-14
+          - os: ubuntu-latest
             target: macos-arm64
             asset: release/shrinker-macos-arm64.tar.gz
-          - os: macos-13
+          - os: ubuntu-latest
             target: macos-x64
             asset: release/shrinker-macos-x64.tar.gz
           - os: ubuntu-latest
