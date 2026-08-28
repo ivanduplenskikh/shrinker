@@ -37,11 +37,7 @@ export function Dashboard({ summary }: { summary: Summary }) {
             </div>
             <span className="database-path">Arguments omitted</span>
           </div>
-          <CommandTable
-            rows={summary.byCommand}
-            uncovered={summary.uncovered}
-            observedReductionPercent={summary.total.reductionPercent}
-          />
+          <CommandTable rows={summary.byCommand} uncovered={summary.uncovered} />
         </Card.Content>
       </Card>
     </main>
