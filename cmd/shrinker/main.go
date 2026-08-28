@@ -290,8 +290,12 @@ optionsDone:
 		filterKind = filters.Detect(args)
 	}
 	if !noStats {
+		commandSubcommand := ""
+		if signature, ok := metrics.CommandSignatureFor(args); ok {
+			commandSubcommand = signature.Subcommand
+		}
 		if err := metrics.RecordRun(metrics.RunStatistic{
-			Mode: "exec", FilterKind: string(filterKind), CommandName: filepath.Base(args[0]),
+			Mode: "exec", FilterKind: string(filterKind), CommandName: filepath.Base(args[0]), CommandSubcommand: commandSubcommand,
 			Measurements: measurements, DurationMs: result.DurationMs, Omitted: omitted,
 			ExitCode: &result.ExitCode,
 		}, metrics.DefaultStatsPath()); err != nil {

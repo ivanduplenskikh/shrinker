@@ -54,6 +54,7 @@ type DailyStatsRow struct {
 }
 type CommandStatsRow struct {
 	Command              string `json:"command"`
+	FilterKind           string `json:"filterKind"`
 	Calls                int    `json:"calls"`
 	EstimatedTokensSaved int    `json:"estimatedTokensSaved"`
 	ReductionPercent     int    `json:"reductionPercent"`
@@ -251,23 +252,23 @@ func getDailyStats(database *sql.DB, interval string) ([]DailyStatsRow, error) {
 }
 
 func getCommandStats(database *sql.DB) ([]CommandStatsRow, error) {
-	rows, err := database.Query("SELECT command_name, COALESCE(command_subcommand,''), COUNT(*), COALESCE(SUM(raw_estimated_tokens),0), COALESCE(SUM(output_estimated_tokens),0), COALESCE(SUM(estimated_tokens_saved),0) FROM runs GROUP BY command_name, command_subcommand ORDER BY COUNT(*) DESC, SUM(estimated_tokens_saved) DESC, command_name ASC")
+	rows, err := database.Query("SELECT command_name, COALESCE(command_subcommand,''), filter_kind, COUNT(*), COALESCE(SUM(raw_estimated_tokens),0), COALESCE(SUM(output_estimated_tokens),0), COALESCE(SUM(estimated_tokens_saved),0) FROM runs GROUP BY command_name, command_subcommand, filter_kind ORDER BY COUNT(*) DESC, SUM(estimated_tokens_saved) DESC, command_name ASC")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	result := []CommandStatsRow{}
 	for rows.Next() {
-		var name, subcommand string
+		var name, subcommand, filterKind string
 		var runs, raw, output, saved int
-		if err := rows.Scan(&name, &subcommand, &runs, &raw, &output, &saved); err != nil {
+		if err := rows.Scan(&name, &subcommand, &filterKind, &runs, &raw, &output, &saved); err != nil {
 			return nil, err
 		}
 		command := name
 		if subcommand != "" {
 			command += " " + subcommand
 		}
-		result = append(result, CommandStatsRow{Command: command, Calls: runs, EstimatedTokensSaved: saved, ReductionPercent: ReductionPercent(raw, output)})
+		result = append(result, CommandStatsRow{Command: command, FilterKind: filterKind, Calls: runs, EstimatedTokensSaved: saved, ReductionPercent: ReductionPercent(raw, output)})
 	}
 	return result, rows.Err()
 }

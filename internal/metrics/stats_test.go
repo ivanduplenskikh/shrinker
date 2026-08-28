@@ -8,7 +8,7 @@ import (
 func TestRecordRunAndGetStats(t *testing.T) {
 	databasePath := t.TempDir() + "/stats.db"
 	if err := RecordRun(RunStatistic{
-		Mode: "exec", FilterKind: "log", CommandName: "demo",
+		Mode: "exec", FilterKind: "log", CommandName: "git", CommandSubcommand: "status",
 		Measurements: Measure("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "xxxxxxxxxxxxxxxxxxxx"),
 		Omitted:      true,
 	}, databasePath); err != nil {
@@ -26,6 +26,9 @@ func TestRecordRunAndGetStats(t *testing.T) {
 	}
 	if len(summary.Daily) != 1 || len(summary.YearlyDaily) != 1 || len(summary.ByCommand) != 1 {
 		t.Fatalf("time or command aggregates = %#v", summary)
+	}
+	if summary.ByCommand[0].Command != "git status" || summary.ByCommand[0].FilterKind != "log" {
+		t.Fatalf("command aggregate = %#v", summary.ByCommand[0])
 	}
 	if chart := FormatStatsChart(summary); !strings.Contains(chart, "Activity") {
 		t.Fatalf("chart = %q", chart)

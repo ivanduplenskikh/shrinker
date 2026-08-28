@@ -11,7 +11,10 @@ import (
 )
 
 func TestRenderEscapesScriptPayload(t *testing.T) {
-	summary := metrics.StatsSummary{DatabasePath: "</script><script>alert(1)</script>"}
+	summary := metrics.StatsSummary{
+		DatabasePath: "</script><script>alert(1)</script>",
+		ByCommand:    []metrics.CommandStatsRow{{Command: "git status", FilterKind: "git-status", Calls: 2}},
+	}
 	html, err := Render(summary)
 	if err != nil {
 		t.Fatal(err)
@@ -21,6 +24,12 @@ func TestRenderEscapesScriptPayload(t *testing.T) {
 	}
 	if !strings.Contains(html, `name="generator" content="shrinker-dashboard"`) {
 		t.Fatal("dashboard marker is missing")
+	}
+	if !strings.Contains(html, "Top commands") || !strings.Contains(html, "git status") || !strings.Contains(html, "git-status") {
+		t.Fatal("combined command statistics are missing")
+	}
+	if !strings.Contains(html, "fillText('Date'") || !strings.Contains(html, "fillText('Tokens saved'") {
+		t.Fatal("chart axis labels are missing")
 	}
 }
 
