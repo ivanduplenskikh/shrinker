@@ -137,6 +137,7 @@ function Install-ReleasePackage {
         Invoke-WebRequest -Uri $assetUrl -OutFile $archivePath -UseBasicParsing
         New-Item -ItemType Directory -Force -Path $extractPath | Out-Null
         Expand-Archive -LiteralPath $archivePath -DestinationPath $extractPath -Force
+        New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
         foreach ($name in @("bin", "integrations", "templates")) {
             $source = Join-Path $extractPath $name
@@ -154,6 +155,11 @@ function Install-ReleasePackage {
 
     $binPath = Join-Path $InstallDir "bin"
     $exePath = Join-Path $binPath "shrinker.exe"
+    $legacyExePath = Join-Path $InstallDir "shrinker.exe"
+    if (-not (Test-Path -LiteralPath $exePath) -and (Test-Path -LiteralPath $legacyExePath)) {
+        New-Item -ItemType Directory -Force -Path $binPath | Out-Null
+        Move-Item -LiteralPath $legacyExePath -Destination $exePath -Force
+    }
     if (-not (Test-Path -LiteralPath $exePath)) { throw "Installed executable not found: $exePath" }
     Add-UserPathEntry $binPath
 
