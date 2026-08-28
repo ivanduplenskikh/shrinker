@@ -1,0 +1,32 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { font-family: "Manrope", sans-serif; color: #17202a; background: #edf4f2; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: radial-gradient(circle at 10% 0%, #dcefeb 0, transparent 34%), #edf4f2; }
+.page-shell { max-width: 1180px; margin: 0 auto; padding: 48px 32px 64px; }
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.eyebrow, .stat-label { color: #53706b; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.page-header h1 { margin: 4px 0 8px; color: #123b37; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1; letter-spacing: 0; }
+.database-path { margin: 0; color: #728580; font-family: "DM Mono", monospace; font-size: 11px; overflow-wrap: anywhere; }
+.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+.summary-grid .rounded-large { border-radius: 8px; }
+.summary-grid .stat-label { display: block; margin-bottom: 12px; }
+.summary-grid strong { color: #123b37; font-size: 30px; font-weight: 800; }
+.panel { margin-top: 14px; border-radius: 8px; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.section-heading h2 { margin: 3px 0 0; color: #123b37; font-size: 20px; letter-spacing: 0; }
+.chart-wrap { overflow-x: auto; }
+.trend-chart { display: block; width: 100%; min-width: 640px; height: auto; }
+.grid-line { stroke: #dce8e5; stroke-width: 1; }
+.axis-line { stroke: #81958f; stroke-width: 1.2; }
+.axis-label { fill: #6d817c; font-family: "DM Mono", monospace; font-size: 12px; }
+.y-label { text-anchor: end; dominant-baseline: middle; }
+.date-label { text-anchor: middle; }
+.axis-title { fill: #385952; font-size: 12px; font-weight: 700; text-anchor: middle; }
+.trend-line { fill: none; stroke: #16836f; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
+code { color: #123b37; font-family: "DM Mono", monospace; font-size: 12px; font-weight: 500; }
+@media (max-width: 760px) { .page-shell { padding: 28px 16px 48px; } .summary-grid { grid-template-columns: repeat(2, 1fr); } .page-header { align-items: flex-start; } }
+@media (max-width: 440px) { .page-header { display: block; } .page-header .chip { margin-top: 18px; } .summary-grid strong { font-size: 24px; } }
