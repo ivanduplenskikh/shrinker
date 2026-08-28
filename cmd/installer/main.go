@@ -44,6 +44,7 @@ func install(args []string) {
 	version := flags.String("version", "", "release version")
 	releaseRepo := flags.String("release-repo", "ivanduplenskikh/shrinker", "GitHub repository")
 	assetBaseURL := flags.String("asset-base-url", "", "release asset base URL")
+	archivePath := flags.String("archive", "", "use a downloaded release archive")
 	installDir := flags.String("install-dir", defaultInstallDir(), "installation directory")
 	profile := flags.String("profile-path", defaultProfile(), "shell profile to update")
 	config := flags.String("config-path", defaultConfig(), "configuration file")
@@ -65,11 +66,14 @@ func install(args []string) {
 		binary += ".exe"
 	}
 	if !*local {
-		archive, err := downloadRelease(*releaseRepo, *version, *assetBaseURL)
-		if err != nil {
-			fail(err.Error())
+		archive := *archivePath
+		if archive == "" {
+			archive, err = downloadRelease(*releaseRepo, *version, *assetBaseURL)
+			if err != nil {
+				fail(err.Error())
+			}
+			defer os.Remove(archive)
 		}
-		defer os.Remove(archive)
 		staging, err := os.MkdirTemp("", "shrinker-install-")
 		if err != nil {
 			fail(err.Error())
@@ -502,6 +506,6 @@ func profileSource(path string) string {
 	return "source \"" + path + "\""
 }
 func usage() {
-	fmt.Println("Usage: installer install --local | installer uninstall\n\nOptions: --install-dir --profile-path --config-path --enable-profile-routing --skip-profile --skip-agent-rules")
+	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive --install-dir --profile-path --config-path --enable-profile-routing --skip-profile --skip-agent-rules")
 }
 func fail(message string) { fmt.Fprintln(os.Stderr, message); os.Exit(1) }

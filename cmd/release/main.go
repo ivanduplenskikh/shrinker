@@ -90,6 +90,11 @@ func packageRelease(target targetSpec, version string) error {
 		binaryName += ".exe"
 	}
 	binaryPath := filepath.Join(staging, "bin", binaryName)
+	installerName := "installer"
+	if target.goos == "windows" {
+		installerName += ".exe"
+	}
+	installerPath := filepath.Join(staging, "bin", installerName)
 	if err := os.MkdirAll(filepath.Dir(binaryPath), 0o755); err != nil {
 		return err
 	}
@@ -100,8 +105,18 @@ func packageRelease(target targetSpec, version string) error {
 	if err := command.Run(); err != nil {
 		return fmt.Errorf("build %s: %w", target.name, err)
 	}
+	command = exec.Command("go", "build", "-ldflags=-s -w", "-o", installerPath, "./cmd/installer")
+	command.Env = append(os.Environ(), "GOOS="+target.goos, "GOARCH="+target.goarch, "CGO_ENABLED=0")
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if err := command.Run(); err != nil {
+		return fmt.Errorf("build installer %s: %w", target.name, err)
+	}
 	if target.goos != "windows" {
 		if err := os.Chmod(binaryPath, 0o755); err != nil {
+			return err
+		}
+		if err := os.Chmod(installerPath, 0o755); err != nil {
 			return err
 		}
 	}

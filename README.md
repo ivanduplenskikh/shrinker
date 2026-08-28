@@ -2,7 +2,7 @@
 
 A small local CLI proof of concept that removes noise from command output before a coding agent or LLM reads it.
 
-this POC proves that a few conservative, deterministic filters can save useful context without requiring an API key, service, UI, database, or agent-specific integration.
+It demonstrates conservative, deterministic filtering without an API key or service.
 
 ## What the POC demonstrates
 
@@ -16,7 +16,7 @@ this POC proves that a few conservative, deterministic filters can save useful c
 
 ## Quick start
 
-The recommended customer install downloads a standalone binary from GitHub Releases.
+The recommended customer install downloads a platform archive from GitHub Releases. Each archive contains the shrinker binary and the shared Go installer.
 
 Contributor builds and local installs use Go 1.26 or newer. Customer installs use the standalone binary.
 
@@ -44,7 +44,7 @@ To pin a version:
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/windows/install.ps1))) -Version 0.4.0
 ```
 
-The installer downloads these anonymous GitHub Release assets by default:
+The platform bootstrap script downloads one of these anonymous GitHub Release archives, then delegates installation to the packaged cross-platform Go installer:
 
 - `shrinker-win-x64.zip`
 - `shrinker-macos-arm64.tar.gz`
@@ -53,131 +53,36 @@ The installer downloads these anonymous GitHub Release assets by default:
 
 Network allowlists need access to `raw.githubusercontent.com` for the installer script and `github.com/ivanduplenskikh/shrinker/releases/download/...` for release assets.
 
-### Unified installer
+### Local checkout
 
-The installer implementation is a single cross-platform Go command. From a checkout:
-
-```powershell
-go run ./cmd/installer install --local --enable-profile-routing
-go run ./cmd/installer uninstall
-```
-
-On an existing release, run the compiled installer with no `--local` flag:
-
-```powershell
-go run ./cmd/installer install --version 0.12.0
-```
-
-The legacy PowerShell and shell scripts remain thin platform entrypoints for one-line remote installation and profile syntax compatibility.
-
-### Update notices
-
-Shrinker checks GitHub Releases at most once every 24 hours and prints an update notice to stderr when a newer version is available. The check only requests release metadata from GitHub; command output, paths, stats, and machine identifiers are not sent.
-
-To disable update checks for one shell session:
-
-```powershell
-$env:SHRINKER_UPDATE_CHECK = "0"
-```
-
-Or set it in `~/.shrinker/config`:
-
-```text
-SHRINKER_UPDATE_CHECK=0
-```
-
-### Install from local checkout
-
-Windows PowerShell:
+Install from a checkout:
 
 ```powershell
 pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Local
 ```
 
-macOS zsh:
+On macOS:
 
 ```bash
 bash ./integrations/macos/install.sh --local
 ```
 
-This writes managed guidance blocks globally to:
-
-- `~/.copilot/copilot-instructions.md`
-- `~/.claude/CLAUDE.md`
-
-The shared guidance source is `templates/agent-rules.md`; the files above are created in the corresponding global agent directory.
-
-The rules tell agents to prefer `shrinker <command>` for high-volume commands while leaving native commands untouched.
-
-### Uninstall
-
-GitHub Release binary install:
-
-Windows PowerShell:
+The platform scripts are thin bootstrappers; installation, configuration, profile updates, and agent rules are handled by the shared Go installer. To uninstall:
 
 ```powershell
 pwsh -ExecutionPolicy Bypass -File .\integrations\windows\uninstall.ps1
 ```
 
-macOS zsh:
-
 ```bash
 bash ./integrations/macos/uninstall.sh
 ```
 
-macOS one-liner uninstall:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/macos/uninstall.sh | bash
-```
-
-### Local repo install/uninstall (contributors)
-
-If you cloned this repository and want to run scripts directly from the local path:
+To run the shared installer directly from a checkout:
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Local
+go run ./cmd/installer install --local --enable-profile-routing
+go run ./cmd/installer uninstall
 ```
-
-Or on macOS:
-
-```bash
-bash ./integrations/macos/install.sh --local
-```
-
-To uninstall:
-
-```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Uninstall
-```
-
-Or on macOS:
-
-```bash
-bash ./integrations/macos/install.sh --uninstall
-```
-
-Uninstall options:
-
-```powershell
-# Keep shrinker command installed, but remove profile integration and managed rules
-pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Uninstall -SkipUnlink
-
-# Keep managed rules files unchanged while uninstalling command/profile hooks
-pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Uninstall -SkipAgentRules
-```
-
-macOS uninstall options:
-
-```bash
-# Keep shrinker command installed, but remove profile integration and managed rules
-bash ./integrations/macos/install.sh --uninstall --skip-unlink
-
-# Keep managed rules files unchanged while uninstalling command/profile hooks
-bash ./integrations/macos/install.sh --uninstall --skip-agent-rules
-```
-
-If your current terminal had already loaded `shrinker-profile.ps1` or `shrinker-profile.zsh`, restart terminal (or remove loaded wrapper functions) to fully return to native command behavior.
 
 ```powershell
 go test ./...
@@ -421,13 +326,15 @@ The dashboard is rendered as self-contained HTML and served locally when request
 
 The dashboard UI is built separately with React and HeroUI during release CI. The production HTML, CSS, and JavaScript are copied into `internal/dashboard/ui/` and embedded into the Go binary, so installed users do not need Node.js.
 
+Release archives include `bin/shrinker`, `bin/installer`, the platform bootstrap scripts, profile integrations, templates, and a manifest. The platform bootstrap only handles downloading and extracting the archive; the Go installer performs the installation.
+
 | Command | Purpose |
 | --- | --- |
 | `go run ./cmd/shrinker` | Run the CLI from source |
 | `go test ./...` | Run Go tests |
 | `go vet ./...` | Run static checks |
 | `npm ci --prefix packages/dashboard-ui; npm run build --prefix packages/dashboard-ui` | Build the dashboard UI |
-| `go run ./cmd/release --target linux-x64 --version 0.12.0` | Build a release archive |
+| `go run ./cmd/release --target linux-x64 --version 0.12.0` | Build a release archive with shrinker and installer |
 
 Release builds use the Go packager and embed the Go-owned dashboard directly in the binary.
 
