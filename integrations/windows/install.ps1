@@ -37,7 +37,7 @@ if ($Local) {
     Push-Location $repositoryRoot
     try {
         & go run ./cmd/installer @arguments
-        exit $LASTEXITCODE
+        return $LASTEXITCODE
     }
     finally {
         Pop-Location
@@ -57,7 +57,7 @@ try {
     if (-not (Test-Path $installer)) { throw "Release archive is missing bin\installer.exe" }
     $arguments += @("--archive", $archive)
     & $installer @arguments
-    exit $LASTEXITCODE
+    return $LASTEXITCODE
 }
 finally {
     Remove-Item -LiteralPath $temporary -Recurse -Force -ErrorAction SilentlyContinue
