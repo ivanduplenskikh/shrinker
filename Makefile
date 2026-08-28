@@ -1,4 +1,4 @@
-.PHONY: dashboard
+.PHONY: dashboard dashboard-start
 
 dashboard:
 	npm ci --prefix packages/dashboard-ui
@@ -7,4 +7,4 @@ dashboard:
 	node scripts/embed-dashboard.mjs
 
 dashboard-start:
-	npm run start --prefix packages/dashboard-ui
+	cd packages/dashboard-ui && npm run start

@@ -1,8 +1,6 @@
-import { readdir, mkdir, copyFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { copyFileSync, mkdirSync } from "node:fs";
 
-const BASE_PATH = "packages/dashboard-ui/dist";
-const OUTPUT_PATH = "internal/dashboard/ui";
-
-await mkdir("internal/dashboard/ui/assets", { recursive: true });
-(await readdir(BASE_PATH)).forEach(async (file) => await copyFile(resolve(BASE_PATH, file), resolve(OUTPUT_PATH, file)));
+mkdirSync("internal/dashboard/ui/assets", { recursive: true });
+copyFileSync("packages/dashboard-ui/dist/index.html", "internal/dashboard/ui/app.html");
+copyFileSync("packages/dashboard-ui/dist/assets/index.css", "internal/dashboard/ui/assets/app.css");
+copyFileSync("packages/dashboard-ui/dist/assets/dashboard.js", "internal/dashboard/ui/assets/dashboard.js");
