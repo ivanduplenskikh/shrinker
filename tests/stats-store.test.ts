@@ -227,3 +227,32 @@ test("an empty stats database returns zero totals", async (context) => {
   assert.deepEqual(summary.daily, []);
   assert.match(formatStatsChart(summary), /No recorded runs/);
 });
+
+test("aggregate reduction does not round partial savings up to one hundred percent", async (context) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "shrinker-stats-percent-"));
+  context.after(async () => await rm(directory, { recursive: true, force: true }));
+  const databasePath = path.join(directory, "stats.db");
+
+  recordRun(
+    {
+      mode: "exec",
+      filterKind: "git-log",
+      commandName: "git",
+      commandSubcommand: "log",
+      measurements: {
+        rawBytes: 4000,
+        outputBytes: 4,
+        rawEstimatedTokens: 1000,
+        outputEstimatedTokens: 1,
+        estimatedTokensSaved: 999,
+        reductionPercent: 99,
+      },
+      omitted: true,
+    },
+    databasePath,
+  );
+
+  const summary = getStats(databasePath);
+  assert.equal(summary.total.reductionPercent, 99);
+  assert.equal(summary.byCommand[0]?.reductionPercent, 99);
+});

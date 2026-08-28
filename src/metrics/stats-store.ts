@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { FilterKind } from "../filters/types.js";
-import type { Measurements } from "./measure.js";
+import { reductionPercent, type Measurements } from "./measure.js";
 import {
   isCoverageTrackingEnabled,
   sanitizeToken,
@@ -286,7 +286,7 @@ function toStatsRow(row: AggregateRow, filterKind = "all"): StatsRow {
     outputEstimatedTokens: output,
     estimatedTokensSaved,
     estimatedInputCostSavedUsd: (estimatedTokensSaved / 1_000_000) * inputCostPerMillionTokens(),
-    reductionPercent: raw === 0 ? 0 : Math.max(0, Math.round((1 - output / raw) * 100)),
+    reductionPercent: reductionPercent(raw, output),
   };
 }
 
