@@ -16,13 +16,11 @@ import (
 const usage = `Usage:
   shrinker <command> [args...]
   shrinker exec [--] <command> [args...]
-	shrinker pipe [--kind log] [--max-lines <number>]
-	shrinker stats [--json]
-		shrinker stats [--chart]
-			shrinker stats --dashboard [--dashboard-server] [--port <number>]
-	shrinker track --executable <name> [--subcommand <name>] [--bytes <number>] [--exit-code <number>]
-	shrinker last
-	shrinker raw <capture-id>
+  shrinker pipe [--kind log] [--max-lines <number>]
+  shrinker stats [--json] [--chart] --dashboard [--dashboard-server] [--port <number>]
+  shrinker track --executable <name> [--subcommand <name>] [--bytes <number>] [--exit-code <number>]
+  shrinker last
+  shrinker raw <capture-id>
   shrinker help
 `
 

@@ -105,6 +105,9 @@ func install(args []string) {
 		fail(err.Error())
 	}
 	if !*skipProfile {
+		if err := addUserPath(binDir); err != nil {
+			fail(err.Error())
+		}
 		if err := addPath(*profile, binDir); err != nil {
 			fail(err.Error())
 		}
@@ -176,10 +179,10 @@ func setConfig(path, key, value string) error {
 }
 
 func addPath(path, directory string) error {
-	return appendBlock(path, pathBlockStart(), pathBlockEnd(), pathBlockStart()+"\n"+pathExport(directory)+"\n"+pathBlockEnd())
+	return replaceBlock(path, pathBlockStart(), pathBlockEnd(), pathBlockStart()+"\n"+pathExport(directory)+"\n"+pathBlockEnd())
 }
 func addProfile(path, integration string) error {
-	return appendBlock(path, blockStart, blockEnd, blockStart+"\n"+profileSource(integration)+"\n"+blockEnd)
+	return replaceBlock(path, blockStart, blockEnd, blockStart+"\n"+profileSource(integration)+"\n"+blockEnd)
 }
 func appendBlock(path, start, end, block string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -409,6 +412,11 @@ func defaultConfig() string {
 func defaultProfile() string {
 	home, _ := os.UserHomeDir()
 	if runtime.GOOS == "windows" {
+		if output, err := exec.Command("powershell", "-NoProfile", "-Command", "$PROFILE").Output(); err == nil {
+			if profile := strings.TrimSpace(string(output)); profile != "" {
+				return profile
+			}
+		}
 		if value := os.Getenv("PROFILE"); value != "" {
 			return value
 		}
@@ -430,6 +438,38 @@ func pathExport(directory string) string {
 	}
 	return "export PATH=\"" + directory + ":$PATH\""
 }
+
+func addUserPath(directory string) error {
+	if runtime.GOOS != "windows" {
+		return nil
+	}
+	current := os.Getenv("Path")
+	for _, entry := range strings.Split(current, string(os.PathListSeparator)) {
+		if strings.EqualFold(entry, directory) {
+			return nil
+		}
+	}
+	userPath, err := exec.Command("powershell", "-NoProfile", "-Command", "[Environment]::GetEnvironmentVariable('Path','User')").Output()
+	if err != nil {
+		return err
+	}
+	entries := strings.Split(strings.TrimSpace(string(userPath)), string(os.PathListSeparator))
+	for _, entry := range entries {
+		if strings.EqualFold(entry, directory) {
+			os.Setenv("Path", directory+string(os.PathListSeparator)+current)
+			return nil
+		}
+	}
+	entries = append([]string{directory}, entries...)
+	command := exec.Command("powershell", "-NoProfile", "-Command", "$p="+quotePowerShell(strings.Join(entries, string(os.PathListSeparator)))+"; [Environment]::SetEnvironmentVariable('Path',$p,'User')")
+	if output, err := command.CombinedOutput(); err != nil {
+		return fmt.Errorf("could not update user PATH: %s", strings.TrimSpace(string(output)))
+	}
+	os.Setenv("Path", directory+string(os.PathListSeparator)+current)
+	return nil
+}
+
+func quotePowerShell(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
 func profileSource(path string) string {
 	if runtime.GOOS == "windows" {
 		return ". \"" + path + "\""
