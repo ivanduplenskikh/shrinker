@@ -11,7 +11,7 @@ import (
 var progressPattern = regexp.MustCompile(`(?i)^(?:\s*\d{1,3}%|progress\b|downloading\b|uploading\b|building\b|compiling\b|waiting\b|\.{3,}|[=\-#>.]{8,})`)
 var importantPattern = regexp.MustCompile(`(?i)\b(error|failed|failure|fatal|warning?|exception|panic)\b`)
 
-func Apply(input string, requested Kind, options Options) Result {
+func applyGenericLog(input string, requested Kind, options Options) Result {
 	cleaned := formatting.CleanText(input)
 	lines := strings.Split(cleaned, "\n")
 	compact := make([]string, 0, len(lines))

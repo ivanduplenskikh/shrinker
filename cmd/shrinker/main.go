@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
@@ -14,6 +15,7 @@ const usage = `Usage:
   shrinker <command> [args...]
   shrinker exec [--] <command> [args...]
 	shrinker pipe [--kind log] [--max-lines <number>]
+	shrinker stats [--json]
   shrinker help
 `
 
@@ -25,7 +27,10 @@ func main() {
 	}
 
 	mode := "exec"
-	if args[0] == "pipe" {
+	if args[0] == "stats" {
+		mode = "stats"
+		args = args[1:]
+	} else if args[0] == "pipe" {
 		mode = "pipe"
 		args = args[1:]
 	} else if args[0] == "exec" {
@@ -33,10 +38,18 @@ func main() {
 	}
 	raw := false
 	showMetrics := false
+	jsonOutput := false
 	kind := filters.KindAuto
 	maxLines := 120
+	perFileLines := 40
 	for len(args) > 0 && args[0] != "--" {
 		switch args[0] {
+		case "--json":
+			if mode != "stats" {
+				fail("--json is only supported by stats")
+			}
+			jsonOutput = true
+			args = args[1:]
 		case "--raw":
 			raw = true
 			args = args[1:]
@@ -59,6 +72,16 @@ func main() {
 			}
 			maxLines = parsed
 			args = args[2:]
+		case "--per-file-lines":
+			if len(args) < 2 {
+				fail("--per-file-lines requires a value")
+			}
+			parsed, err := strconv.Atoi(args[1])
+			if err != nil || parsed <= 0 {
+				fail("--per-file-lines requires a positive integer")
+			}
+			perFileLines = parsed
+			args = args[2:]
 		default:
 			if mode == "exec" && !startsOption(args[0]) {
 				goto optionsDone
@@ -67,11 +90,30 @@ func main() {
 		}
 	}
 optionsDone:
+	if mode == "stats" {
+		if len(args) != 0 {
+			fail("stats does not accept command arguments")
+		}
+		summary, err := metrics.GetStats(metrics.DefaultStatsPath())
+		if err != nil {
+			fail(err.Error())
+		}
+		if jsonOutput {
+			output, err := metrics.FormatStatsJSON(summary)
+			if err != nil {
+				fail(err.Error())
+			}
+			fmt.Println(output)
+		} else {
+			fmt.Println(metrics.FormatStats(summary))
+		}
+		return
+	}
 	if len(args) > 0 && args[0] == "--" {
 		args = args[1:]
 	}
 	if mode == "pipe" {
-		renderPipe(raw, showMetrics, kind, maxLines)
+		renderPipe(raw, showMetrics, kind, maxLines, perFileLines)
 		return
 	}
 	if len(args) == 0 {
@@ -83,24 +125,24 @@ optionsDone:
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	render(result.Combined, raw, showMetrics, kind, maxLines, result.DurationMs)
+	render(result.Combined, raw, showMetrics, kind, maxLines, perFileLines, result.DurationMs, args)
 	if result.ExitCode != 0 {
 		os.Exit(result.ExitCode)
 	}
 }
 
-func renderPipe(raw, showMetrics bool, kind filters.Kind, maxLines int) {
+func renderPipe(raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines int) {
 	input, err := readInput()
 	if err != nil {
 		fail(err.Error())
 	}
-	render(input, raw, showMetrics, kind, maxLines, 0)
+	render(input, raw, showMetrics, kind, maxLines, perFileLines, 0, nil)
 }
 
-func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines int, durationMs int64) {
+func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines int, durationMs int64, command []string) {
 	output := input
 	if !raw {
-		result := filters.Apply(input, kind, filters.Options{MaxLines: maxLines})
+		result := filters.Apply(input, kind, filters.Options{MaxLines: maxLines, PerFileLines: perFileLines, Command: command})
 		comparison := metrics.Measure(input, result.Output)
 		if comparison.OutputBytes < comparison.RawBytes && comparison.OutputEstimatedTokens < comparison.RawEstimatedTokens {
 			output = result.Output
@@ -113,15 +155,7 @@ func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines int
 }
 
 func readInput() (string, error) {
-	contents, err := os.ReadFile("/dev/stdin")
-	if err == nil {
-		return string(contents), nil
-	}
-	return readAll(os.Stdin)
-}
-
-func readAll(file *os.File) (string, error) {
-	contents, err := io.ReadAll(file)
+	contents, err := io.ReadAll(os.Stdin)
 	return string(contents), err
 }
 

@@ -8,7 +8,9 @@ const (
 )
 
 type Options struct {
-	MaxLines int
+	MaxLines     int
+	PerFileLines int
+	Command      []string
 }
 
 type Result struct {
