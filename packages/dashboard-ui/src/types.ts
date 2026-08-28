@@ -11,6 +11,13 @@ export interface CommandStat {
   reductionPercent: number;
 }
 
+export interface UncoveredRow {
+  command: string;
+  occurrences: number;
+  estimatedTokens: number;
+  reasons: string[];
+}
+
 export interface Summary {
   databasePath: string;
   total: {
@@ -23,6 +30,7 @@ export interface Summary {
   };
   daily: DailyStat[];
   byCommand: CommandStat[];
+  uncovered: UncoveredRow[];
 }
 
 export interface StatsPayload {
