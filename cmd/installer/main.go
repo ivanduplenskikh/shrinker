@@ -297,8 +297,9 @@ func downloadRelease(repo, version, base string) (string, error) {
 }
 
 func archiveTarget(destination, name string) (string, error) {
-	cleanName := filepath.Clean(filepath.FromSlash(name))
-	if cleanName == "." || filepath.IsAbs(cleanName) || strings.HasPrefix(name, "/") || strings.HasPrefix(name, `\`) {
+	normalizedName := strings.ReplaceAll(name, `\`, "/")
+	cleanName := filepath.Clean(filepath.FromSlash(normalizedName))
+	if cleanName == "." || filepath.IsAbs(cleanName) || strings.HasPrefix(normalizedName, "/") {
 		return "", fmt.Errorf("unsafe archive path: %s", name)
 	}
 	target := filepath.Join(destination, cleanName)

@@ -14,7 +14,7 @@ func TestRunCommandCapturesOutputAndExitCode(t *testing.T) {
 		args = []string{"/d", "/c", "echo visible output & echo important error 1>&2 & exit /b 7"}
 	} else {
 		command = "sh"
-		args = []string{"-c", "printf visible; printf important error >&2; exit 7"}
+		args = []string{"-c", "printf 'visible'; printf 'important error' >&2; exit 7"}
 	}
 
 	result, err := RunCommand(command, args)

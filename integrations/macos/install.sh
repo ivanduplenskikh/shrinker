@@ -80,7 +80,7 @@ fi
 
 if (( interactive && SKIP_PROFILE == 0 && ENABLE_PROFILE_ROUTING == 0 )); then
   print_message "❓" "Route wrapped commands through shrinker automatically? Adds a source line to $PROFILE_PATH."
-  ENABLE_PROFILE_ROUTING="$(prompt_yes_no "Enable automatic shell routing?" 0)"
+  ENABLE_PROFILE_ROUTING="$(prompt_yes_no "Enable automatic shell routing?" 1)"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

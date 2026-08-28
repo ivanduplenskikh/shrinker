@@ -54,7 +54,7 @@ else { $TrackUncovered = $true }
 
 if ($IsInteractive -and -not $SkipProfile -and -not $EnableProfileRouting) {
     Write-InstallStep "❓" "Route wrapped commands through shrinker automatically? Adds a line to $ProfilePath."
-    $EnableProfileRouting = Read-YesNo "Enable automatic shell routing?" $false
+    $EnableProfileRouting = Read-YesNo "Enable automatic shell routing?" $true
 }
 
 function Set-ConfigValue {
