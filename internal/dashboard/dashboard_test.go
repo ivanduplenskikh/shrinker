@@ -1,6 +1,9 @@
 package dashboard
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -18,5 +21,28 @@ func TestRenderEscapesScriptPayload(t *testing.T) {
 	}
 	if !strings.Contains(html, `name="generator" content="shrinker-dashboard"`) {
 		t.Fatal("dashboard marker is missing")
+	}
+}
+
+func TestHandlerServesAndShutsDown(t *testing.T) {
+	server := &http.Server{}
+	handler := Handler(func() (metrics.StatsSummary, error) {
+		return metrics.StatsSummary{DatabasePath: "test.db"}, nil
+	}, server)
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	record := httptest.NewRecorder()
+	handler.ServeHTTP(record, request)
+	if record.Code != http.StatusOK {
+		t.Fatalf("status = %d", record.Code)
+	}
+	body, _ := io.ReadAll(record.Result().Body)
+	if !strings.Contains(string(body), "Shrinker stats") {
+		t.Fatal("dashboard body missing title")
+	}
+
+	shutdown := httptest.NewRecorder()
+	handler.ServeHTTP(shutdown, httptest.NewRequest(http.MethodPost, "/__shrinker_shutdown", nil))
+	if shutdown.Code != http.StatusNoContent {
+		t.Fatalf("shutdown status = %d", shutdown.Code)
 	}
 }

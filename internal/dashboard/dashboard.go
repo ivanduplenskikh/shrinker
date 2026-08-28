@@ -1,7 +1,9 @@
 package dashboard
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -46,9 +48,21 @@ func Render(summary metrics.StatsSummary) (string, error) {
 }
 
 func Serve(getSummary func() (metrics.StatsSummary, error), port int) error {
-	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	server := &http.Server{Addr: fmt.Sprintf("127.0.0.1:%d", port)}
+	handler := Handler(getSummary, server)
+	server.Handler = handler
+	err := server.ListenAndServe()
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}
+
+func Handler(getSummary func() (metrics.StatsSummary, error), server *http.Server) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method == http.MethodPost && request.URL.Path == "/__shrinker_shutdown" {
 			writer.WriteHeader(http.StatusNoContent)
+			go server.Shutdown(context.Background())
 			return
 		}
 		if request.URL.Path != "/" {
@@ -68,7 +82,6 @@ func Serve(getSummary func() (metrics.StatsSummary, error), port int) error {
 		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = writer.Write([]byte(html))
 	})
-	return http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", port), handler)
 }
 
 func Open(url string) {
