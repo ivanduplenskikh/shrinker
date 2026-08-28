@@ -16,7 +16,7 @@ this POC proves that a few conservative, deterministic filters can save useful c
 
 ## Quick start
 
-The recommended customer install downloads a standalone binary from GitHub Releases. It does not require npm registry access or a local Node.js installation.
+The recommended customer install downloads a standalone Go binary from GitHub Releases.
 
 Contributor builds and local installs use Go 1.26 or newer. Customer installs use the standalone Go binary and require neither Node.js nor npm.
 
@@ -203,11 +203,11 @@ shrinker help
 --coverage                 list commands shrinker does not cover yet
 ```
 
-`help`, `stats`, `last`, `raw`, `track`, `pipe`, and `exec` are reserved shrinker commands. Every other top-level token starts a wrapped command, so `shrinker git log` is equivalent to `shrinker exec git log`. The `--` separator remains optional because npm's PowerShell shim may consume it. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified. `track` is used by the shell integrations to record coverage gaps and prints nothing.
+`help`, `stats`, `last`, `raw`, `track`, `pipe`, and `exec` are reserved shrinker commands. Every other top-level token starts a wrapped command, so `shrinker git log` is equivalent to `shrinker exec git log`. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified. `track` is used by the shell integrations to record coverage gaps and prints nothing.
 
 ## Automatic PowerShell routing
 
-The optional profile integration routes allowlisted commands through `shrinker` and invokes the native executable for everything else. Install it after `npm link`:
+The optional profile integration routes allowlisted commands through `shrinker` and invokes the native executable for everything else. Enable it during installation with `-EnableProfileRouting` on Windows or `--enable-profile-routing` on macOS/Linux.
 
 ```powershell
 if (!(Test-Path $PROFILE)) {
@@ -251,12 +251,12 @@ Edit `$global:ShrinkPowerShellRules` in `integrations\windows\shrinker-profile.p
 Filtered runs are recorded locally in `~/.shrinker/stats.db`. The database stores only measurements, filter kind, executable basename, duration, omission state, and exit code. It does **not** store command arguments or command output.
 
 ```powershell
-node dist\src\cli.js stats
-node dist\src\cli.js stats --json
-node dist\src\cli.js stats --chart
-node dist\src\cli.js stats --dashboard
-node dist\src\cli.js stats --dashboard --port 4318
-node dist\src\cli.js stats --dashboard --restart
+shrinker stats
+shrinker stats --json
+shrinker stats --chart
+shrinker stats --dashboard
+shrinker stats --dashboard --port 4318
+shrinker stats --dashboard --restart
 ```
 
 The summary shows all-time and last-seven-day savings plus a breakdown by filter. Use `--no-stats` before `--` to opt out for an individual run:
@@ -275,7 +275,7 @@ shrinker stats --dashboard
 ```
 
 ```powershell
-node dist\src\cli.js exec --no-stats -- git log -n 10
+shrinker exec --no-stats -- git log -n 10
 ```
 
 Detailed per-run measurements are hidden by default so agents do not spend tokens reading wrapper telemetry. Enable them for benchmarking or demos:
@@ -430,27 +430,9 @@ go test ./...
 
 Tests cover information retention, reduction targets, ANSI cleanup, filter selection, command capture, SQLite persistence, dashboard rendering, and non-zero exit-code propagation.
 
-## Release to npm
+## Release
 
-A GitHub Actions workflow publishes this CLI to npm:
-
-- Workflow file: `.github/workflows/publish-npm.yml`
-- Triggers:
-    - Tag push matching `v*` (for example `v0.2.0`)
-    - Manual run via workflow_dispatch
-- Pipeline steps:
-    - `npm ci`
-    - `npm test`
-    - `npm publish` to `https://registry.npmjs.org`
-
-How to publish:
-
-1. Push your changes to GitHub.
-2. Push a version tag (or run the workflow manually):
-    - `git tag v0.2.0`
-    - `git push origin v0.2.0`
-3. After the workflow succeeds, install from npm:
-    - `npm install -g shrinker-ai`
+Push a version tag such as `v0.12.0`. The release workflow builds and attaches Go archives for Windows, macOS ARM64, macOS x64, and Linux x64.
 
 ## Suggested roadmap
 
