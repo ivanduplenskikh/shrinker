@@ -2,6 +2,8 @@ node_modules/
 dist/
 .shrinker/
 release/
+!cmd/release/
+!cmd/release/main.go
 coverage/
 .copilot-instructions.md
 CLAUDE.md
