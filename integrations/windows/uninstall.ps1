@@ -1,5 +1,4 @@
 param(
-    [switch]$UseNpm,
     [switch]$SkipUnlink,
     [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
@@ -93,16 +92,11 @@ function Remove-ManagedConfig {
 Write-UninstallStep "🛑" "Stopping the dashboard server on port $Port..."
 Stop-DashboardServer $Port
 
-if (-not $SkipUnlink -and $UseNpm) {
-    Write-UninstallStep "🔗" "Unlinking shrinker globally..."
-    & npm unlink --silent --global shrinker-ai
-    if ($LASTEXITCODE -ne 0) { throw "npm unlink failed." }
-}
-elseif (-not $SkipUnlink) {
+if (-not $SkipUnlink) {
     Write-UninstallStep "🔗" "Removing release-installed shrinker files..."
     Remove-ReleaseInstall
 }
-else { Write-UninstallStep "⏭️" "Skipped global npm unlink." }
+else { Write-UninstallStep "⏭️" "Skipped removal." }
 Write-UninstallStep "🔧" "Removing PowerShell profile integration..."
 Remove-ProfileIntegration $ProfilePath
 if (-not $SkipAgentRules) {

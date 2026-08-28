@@ -1,15 +1,10 @@
 param(
     [switch]$Local,
-    [switch]$UseNpm,
-    [string]$PackageName = "shrinker-ai",
-    [string]$Registry = "https://registry.npmjs.org",
     [string]$Version,
     [string]$ReleaseRepo = "ivanduplenskikh/shrinker",
     [string]$AssetBaseUrl,
     [string]$InstallDir = $(Join-Path $HOME ".shrinker"),
-    [switch]$SkipNpmInstall,
     [switch]$SkipBuild,
-    [switch]$SkipLink,
     [switch]$EnableProfileRouting,
     [switch]$SkipProfile,
     [switch]$SkipAgentRules,
@@ -176,23 +171,6 @@ function Install-ReleasePackage {
     Write-InstallStep "✅" "Install complete."
     Write-Host " "
     Write-Host "💡 Try: shrinker help"
-}
-
-if (-not $Local -and $UseNpm) {
-    $packageSpec = if ($Version) { "$PackageName@$Version" } else { $PackageName }
-    Write-InstallStep "📦" "Installing $packageSpec from $Registry..."
-    & npm install --silent --global $packageSpec "--registry=$Registry"
-    if ($LASTEXITCODE -ne 0) { throw "npm package installation failed." }
-    Write-InstallStep "🔎" "Locating the installed package..."
-    $globalRoot = (& npm root --global).Trim()
-    if (-not $globalRoot) { throw "Could not determine the global npm package directory." }
-    $packageRoot = Join-Path $globalRoot ($PackageName -replace '/', '\')
-    $entrypoint = Join-Path $packageRoot "integrations\windows\install.ps1"
-    if (-not (Test-Path $entrypoint)) { throw "Installed package installer not found: $entrypoint" }
-    Write-InstallStep "⚙️" "Configuring the installed package..."
-    & pwsh -ExecutionPolicy Bypass -File $entrypoint -Local -SkipNpmInstall -SkipBuild -SkipLink -EnableProfileRouting:$EnableProfileRouting -SkipProfile:$SkipProfile -SkipAgentRules:$SkipAgentRules -CopilotOnly:$CopilotOnly -ClaudeOnly:$ClaudeOnly -EnableUncoveredTracking:$TrackUncovered -DisableUncoveredTracking:(-not $TrackUncovered) -ProfilePath $ProfilePath -ConfigPath $ConfigPath -StepOffset $InstallStep
-    if ($LASTEXITCODE -ne 0) { throw "Repository installer failed with exit code $LASTEXITCODE" }
-    return
 }
 
 if (-not $Local) {

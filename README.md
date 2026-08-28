@@ -69,34 +69,6 @@ Or set it in `~/.shrinker/config`:
 SHRINKER_UPDATE_CHECK=0
 ```
 
-### Optional npm package install
-
-Use this only when npm registry access is available or preferred.
-
-Windows PowerShell:
-
-```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -UseNpm
-
-# Or manually:
-npm install --global shrinker-ai --registry=https://registry.npmjs.org
-$pkg = Join-Path ((npm root --global).Trim()) "shrinker-ai"
-pwsh -ExecutionPolicy Bypass -File (Join-Path $pkg "integrations\\windows\\install.ps1") -Local -SkipNpmInstall -SkipBuild -SkipLink
-```
-
-To enable automatic PowerShell routing, add `-EnableProfileRouting` to the final command.
-
-macOS zsh:
-
-```bash
-bash ./integrations/macos/install.sh --use-npm
-
-# Or manually:
-npm install --global shrinker-ai --registry=https://registry.npmjs.org
-pkg="$(npm root --global)/shrinker-ai"
-bash "$pkg/integrations/macos/install.sh" --local --skip-npm-install --skip-build --skip-link --enable-profile-routing
-```
-
 ### Install from local checkout
 
 Windows PowerShell:
@@ -134,28 +106,6 @@ macOS zsh:
 
 ```bash
 bash ./integrations/macos/uninstall.sh
-```
-
-If you installed from npm, use npm mode:
-
-```bash
-npm uninstall --global shrinker-ai --registry=https://registry.npmjs.org
-```
-
-If you also installed profile/rules through the package scripts, run the matching local uninstaller from the installed package before uninstalling:
-
-Windows PowerShell:
-
-```powershell
-$pkg = Join-Path ((npm root --global).Trim()) "shrinker-ai"
-pwsh -ExecutionPolicy Bypass -File (Join-Path $pkg "integrations\\windows\\uninstall.ps1") -SkipUnlink
-```
-
-macOS zsh:
-
-```bash
-pkg="$(npm root --global)/shrinker-ai"
-bash "$pkg/integrations/macos/uninstall.sh" --skip-unlink
 ```
 
 macOS one-liner uninstall:

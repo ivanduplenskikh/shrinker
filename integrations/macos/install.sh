@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PACKAGE_NAME="shrinker-ai"
-REGISTRY="https://registry.npmjs.org"
 VERSION=""
-USE_NPM=0
 RELEASE_REPO="ivanduplenskikh/shrinker"
 ASSET_BASE_URL=""
 LOCAL=0
-SKIP_NPM_INSTALL=0
 SKIP_BUILD=0
 SKIP_LINK=0
 ENABLE_PROFILE_ROUTING=0
@@ -32,14 +28,10 @@ print_message() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --local) LOCAL=1 ;;
-    --use-npm) USE_NPM=1 ;;
-    --package-name) PACKAGE_NAME="${2:-}"; shift ;;
-    --registry) REGISTRY="${2:-}"; shift ;;
     --version) VERSION="${2:-}"; shift ;;
     --release-repo) RELEASE_REPO="${2:-}"; shift ;;
     --asset-base-url) ASSET_BASE_URL="${2:-}"; shift ;;
     --install-dir) INSTALL_DIR="${2:-}"; shift ;;
-    --skip-npm-install) SKIP_NPM_INSTALL=1 ;;
     --skip-build) SKIP_BUILD=1 ;;
     --skip-link) SKIP_LINK=1 ;;
     --enable-profile-routing) ENABLE_PROFILE_ROUTING=1 ;;
@@ -89,28 +81,6 @@ fi
 if (( interactive && SKIP_PROFILE == 0 && ENABLE_PROFILE_ROUTING == 0 )); then
   print_message "❓" "Route wrapped commands through shrinker automatically? Adds a source line to $PROFILE_PATH."
   ENABLE_PROFILE_ROUTING="$(prompt_yes_no "Enable automatic shell routing?" 0)"
-fi
-
-if (( LOCAL == 0 && USE_NPM == 1 )); then
-  package_spec="$PACKAGE_NAME"
-  [[ -z "$VERSION" ]] || package_spec="$PACKAGE_NAME@$VERSION"
-  print_message "📦" "Installing $package_spec from $REGISTRY..."
-  npm install --silent --global "$package_spec" "--registry=$REGISTRY"
-  package_root="$(npm root --global)/$PACKAGE_NAME"
-  entrypoint="$package_root/integrations/macos/install.sh"
-  [[ -f "$entrypoint" ]] || { print_message "❌" "Installed package installer not found: $entrypoint" >&2; exit 1; }
-  SHRINKER_STEP_OFFSET="$STEP" bash "$entrypoint" --local --skip-npm-install --skip-build --skip-link \
-    $( (( ENABLE_PROFILE_ROUTING )) && echo --enable-profile-routing ) \
-    $( (( SKIP_PROFILE )) && echo --skip-profile ) \
-    $( (( SKIP_AGENT_RULES )) && echo --skip-agent-rules ) \
-    $( (( COPILOT_ONLY )) && echo --copilot-only ) \
-    $( (( CLAUDE_ONLY )) && echo --claude-only ) \
-    $( (( TRACK_UNCOVERED )) && echo --enable-uncovered-tracking || echo --disable-uncovered-tracking ) \
-    --profile-path "$PROFILE_PATH"
-  if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
-    return 0
-  fi
-  exit 0
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

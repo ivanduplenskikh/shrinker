@@ -3,7 +3,6 @@ set -euo pipefail
 
 INSTALL_DIR="${SHRINKER_INSTALL_DIR:-$HOME/.shrinker}"
 REMOVE_INSTALL_DIR=0
-USE_NPM=0
 SKIP_UNLINK=0
 SKIP_AGENT_RULES=0
 COPILOT_ONLY=0
@@ -23,7 +22,6 @@ print_step() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --use-npm) USE_NPM=1 ;;
     --skip-unlink) SKIP_UNLINK=1 ;;
     --skip-agent-rules) SKIP_AGENT_RULES=1 ;;
     --copilot-only) COPILOT_ONLY=1 ;;
@@ -67,7 +65,7 @@ remove_release_install() {
   rm -rf "$INSTALL_DIR/bin" "$INSTALL_DIR/integrations" "$INSTALL_DIR/templates" "$INSTALL_DIR/manifest.json"
 }
 
-# The dashboard runs as a detached daemon, so unlinking the package never stops it.
+# The dashboard runs as a detached daemon, so removing the binary never stops it.
 stop_dashboard_server() {
   local url="http://127.0.0.1:$DASHBOARD_PORT"
   if command -v curl >/dev/null 2>&1; then
@@ -99,10 +97,7 @@ remove_managed_config() {
 print_step "🛑" "Stopping the dashboard server on port $DASHBOARD_PORT..."
 stop_dashboard_server
 
-if (( SKIP_UNLINK == 0 && USE_NPM == 1 )); then
-  print_step "🔗" "Unlinking shrinker globally..."
-  npm unlink --silent --global shrinker-ai
-elif (( SKIP_UNLINK == 0 )); then
+if (( SKIP_UNLINK == 0 )); then
   print_step "🔗" "Removing release-installed shrinker files..."
   remove_release_install
 else

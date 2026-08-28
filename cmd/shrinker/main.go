@@ -56,6 +56,7 @@ func main() {
 	noStats := false
 	noSave := false
 	coverage := false
+	dashboardRestart := false
 	trackExecutable, trackSubcommand := "", ""
 	trackBytes, trackExitCode := 0, 0
 	hasTrackBytes, hasTrackExitCode := false, false
@@ -87,6 +88,12 @@ func main() {
 				fail("--dashboard-server is only supported by stats")
 			}
 			dashboardServer = true
+			args = args[1:]
+		case "--restart":
+			if mode != "stats" {
+				fail("--restart is only supported by stats")
+			}
+			dashboardRestart = true
 			args = args[1:]
 		case "--port":
 			if mode != "stats" || len(args) < 2 {
@@ -222,6 +229,9 @@ optionsDone:
 		return
 	}
 	if mode == "stats" {
+		if dashboardRestart && !dashboardOutput {
+			fail("--restart requires --dashboard")
+		}
 		if len(args) != 0 {
 			fail("stats does not accept command arguments")
 		}
@@ -264,7 +274,7 @@ optionsDone:
 		args = args[1:]
 	}
 	if mode == "pipe" {
-		renderPipe(raw, showMetrics, kind, maxLines, perFileLines)
+		renderPipe(raw, showMetrics, kind, maxLines, perFileLines, noStats)
 		return
 	}
 	if len(args) == 0 {
@@ -289,6 +299,14 @@ optionsDone:
 		}, metrics.DefaultStatsPath()); err != nil {
 			fmt.Fprintf(os.Stderr, "[shrinker] could not record stats: %v\n", err)
 		}
+		if metrics.CoverageEnabled() {
+			matched := kind != filters.KindAuto || filters.Detect(args) != filters.KindLog
+			if reason := metrics.ClassifyWrapped(matched, measurements); reason != "" {
+				if signature, ok := metrics.CommandSignatureFor(args); ok {
+					_ = metrics.RecordUncovered(metrics.UncoveredStatistic{Source: "wrapped", Reason: reason, Executable: signature.Executable, Subcommand: signature.Subcommand, RawBytes: measurements.RawBytes, RawEstimatedTokens: measurements.RawEstimatedTokens, ExitCode: &result.ExitCode}, metrics.DefaultStatsPath())
+				}
+			}
+		}
 	}
 	if omitted && !raw && !noSave {
 		capture, err := execution.SaveRawOutput(result.Combined, args, execution.DefaultRawDirectory())
@@ -301,12 +319,19 @@ optionsDone:
 	}
 }
 
-func renderPipe(raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines int) {
+func renderPipe(raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines int, noStats bool) {
 	input, err := readInput()
 	if err != nil {
 		fail(err.Error())
 	}
-	_, _ = render(input, raw, showMetrics, kind, maxLines, perFileLines, 0, nil)
+	_, measurements := render(input, raw, showMetrics, kind, maxLines, perFileLines, 0, nil)
+	if !noStats {
+		filterKind := kind
+		if filterKind == filters.KindAuto {
+			filterKind = filters.KindLog
+		}
+		_ = metrics.RecordRun(metrics.RunStatistic{Mode: "pipe", FilterKind: string(filterKind), CommandName: "stdin", Measurements: measurements}, metrics.DefaultStatsPath())
+	}
 }
 
 func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines int, durationMs int64, command []string) (bool, metrics.Measurements) {
