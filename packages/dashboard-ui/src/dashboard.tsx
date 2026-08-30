@@ -17,7 +17,7 @@ export function Dashboard({ summary }: { summary: Summary }) {
       <header className="page-header">
         <div>
           <h1>Shrinker stats</h1>
-          <p className="database-path">{summary.databasePath}</p>
+          <p className="database-path">From: {summary.databasePath}</p>
         </div>
       </header>
       <SummaryCards summary={summary} />
