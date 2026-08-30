@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/ivanduplenskikh/shrinker/internal/dashboard"
 	"github.com/ivanduplenskikh/shrinker/internal/execution"
@@ -350,12 +351,37 @@ func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines, pe
 		if comparison.OutputBytes < comparison.RawBytes && comparison.OutputEstimatedTokens < comparison.RawEstimatedTokens {
 			output = result.Output
 		}
-		if showMetrics {
-			fmt.Fprintln(os.Stderr, metrics.FormatMeasurements(metrics.Measure(input, output), &durationMs))
-		}
+	}
+	measurementInput := input
+	if !raw && filters.Detect(command) == "git-log" && !gitLogHasExplicitLimit(command) {
+		measurementInput = firstLines(input, 24)
+	}
+	measurements := metrics.Measure(measurementInput, output)
+	if showMetrics {
+		fmt.Fprintln(os.Stderr, metrics.FormatMeasurements(measurements, &durationMs))
 	}
 	fmt.Fprintln(os.Stdout, output)
-	return omitted && output != input, metrics.Measure(input, output)
+	return omitted && output != input, measurements
+}
+
+func gitLogHasExplicitLimit(command []string) bool {
+	for index, argument := range command {
+		if argument == "-n" || argument == "--max-count" {
+			return index+1 < len(command)
+		}
+		if (strings.HasPrefix(argument, "-n") && len(argument) > 2) || strings.HasPrefix(argument, "--max-count=") {
+			return true
+		}
+	}
+	return false
+}
+
+func firstLines(input string, limit int) string {
+	lines := strings.Split(input, "\n")
+	if len(lines) <= limit {
+		return input
+	}
+	return strings.Join(lines[:limit], "\n")
 }
 
 func readInput() (string, error) {
