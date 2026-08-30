@@ -189,6 +189,43 @@ body {
   overflow-x: auto;
 }
 
+.command-tabs {
+  display: inline-flex;
+  gap: 2px;
+  margin-bottom: 14px;
+  padding: 3px;
+  border: 1px solid #c9d9d5;
+  border-radius: 7px;
+  background: #f4f8f7;
+}
+
+.command-tabs button {
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #53706b;
+  cursor: pointer;
+  font: 700 12px "Manrope", sans-serif;
+  padding: 6px 9px;
+}
+
+.command-tabs button[aria-selected="true"] {
+  background: #fff;
+  color: #123b37;
+  box-shadow: 0 1px 2px rgb(18 59 55 / 12%);
+}
+
+.command-tabs button:focus-visible {
+  outline: 2px solid #16836f;
+  outline-offset: 1px;
+}
+
+.command-tabs span {
+  margin-left: 4px;
+  color: #16836f;
+  font-family: "DM Mono", monospace;
+}
+
 .command-table {
   width: 100%;
   min-width: 860px;
