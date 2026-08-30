@@ -109,7 +109,7 @@ export function CommandTable({
               {sortedRows.map((row) => (
                 <tr
                   aria-pressed={selectedCommand === row.command}
-                  className={`${activeTab === "uncovered" ? "missed-filter " : ""}command-row${selectedCommand === row.command ? " selected" : ""}`}
+                  className={`command-row${selectedCommand === row.command ? " selected" : ""}`}
                   key={row.key}
                   onClick={() => onSelectCommand(row.command)}
                   onKeyDown={(event) => {

@@ -332,10 +332,6 @@ body {
   font-size: 10px;
 }
 
-.command-table .missed-filter td {
-  background: #fff7f5;
-}
-
 .command-table .estimated-value {
   color: #a54848;
   font-weight: 700;
