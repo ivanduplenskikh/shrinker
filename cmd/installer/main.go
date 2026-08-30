@@ -138,6 +138,9 @@ func install(args []string) {
 			if err := addProfile(*profile, filepath.Join(root, profileFile())); err != nil {
 				fail(err.Error())
 			}
+			if err := addProfile(bashProfilePath(), filepath.Join(root, bashProfileFile())); err != nil {
+				fail(err.Error())
+			}
 		}
 	}
 	if !*skipRules {
@@ -538,7 +541,7 @@ func defaultProfile() string {
 	return filepath.Join(home, ".zshrc")
 }
 func profilePaths(profile string) []string {
-	paths := []string{profile}
+	paths := []string{profile, bashProfilePath()}
 	if runtime.GOOS == "windows" {
 		home, _ := os.UserHomeDir()
 		paths = append(paths,
@@ -561,6 +564,11 @@ func profileFile() string {
 		return filepath.Join("integrations", "windows", "shrinker-profile.ps1")
 	}
 	return filepath.Join("integrations", "macos", "shrinker-profile.zsh")
+}
+func bashProfileFile() string { return filepath.Join("integrations", "bash", "shrinker-profile.bash") }
+func bashProfilePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".bashrc")
 }
 func pathBlockStart() string { return "# >>> shrinker path >>>" }
 func pathBlockEnd() string   { return "# <<< shrinker path <<<" }

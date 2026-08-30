@@ -66,6 +66,12 @@ func TestDashboardServerCommandUsesInstalledBinary(t *testing.T) {
 	}
 }
 
+func TestBashProfileFile(t *testing.T) {
+	if got, want := bashProfileFile(), filepath.Join("integrations", "bash", "shrinker-profile.bash"); got != want {
+		t.Fatalf("bash profile file = %q, want %q", got, want)
+	}
+}
+
 func TestRemoveAllWithRetryRemovesDirectory(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "bin")
