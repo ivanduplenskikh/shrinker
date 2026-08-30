@@ -19,6 +19,15 @@ export interface UncoveredRow {
   reasons: string[];
 }
 
+export interface CommandRun {
+  command: string;
+  createdAt: string;
+  rawEstimatedTokens: number;
+  outputEstimatedTokens: number;
+  estimatedTokensSaved: number;
+  status: string;
+}
+
 export interface Summary {
   databasePath: string;
   total: {
@@ -32,6 +41,7 @@ export interface Summary {
   daily: DailyStat[];
   byCommand: CommandStat[];
   uncovered: UncoveredRow[];
+  commandRuns: CommandRun[];
 }
 
 export interface StatsPayload {

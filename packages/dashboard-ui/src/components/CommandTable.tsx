@@ -26,9 +26,13 @@ function formatNumber(value = 0): string {
 export function CommandTable({
   rows,
   uncovered,
+  selectedCommand,
+  onSelectCommand,
 }: {
   rows: CommandStat[];
   uncovered: UncoveredRow[];
+  selectedCommand: string | null;
+  onSelectCommand: (command: string) => void;
 }) {
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
     key: "saved",
@@ -104,7 +108,20 @@ export function CommandTable({
           ) : (
             <>
               {sortedRows.map((row) => (
-                <tr className={row.kind === "uncovered" ? "missed-filter" : undefined} key={row.key}>
+                <tr
+                  aria-pressed={selectedCommand === row.command}
+                  className={`${row.kind === "uncovered" ? "missed-filter " : ""}command-row${selectedCommand === row.command ? " selected" : ""}`}
+                  key={row.key}
+                  onClick={() => onSelectCommand(row.command)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onSelectCommand(row.command);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
                   <td><code>{row.command}</code></td>
                   <td>
                     <Badge variant={row.kind === "uncovered" ? "destructive" : "secondary"}>{row.filter}</Badge>

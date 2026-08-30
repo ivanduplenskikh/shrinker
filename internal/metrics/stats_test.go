@@ -30,6 +30,9 @@ func TestRecordRunAndGetStats(t *testing.T) {
 	if summary.ByCommand[0].Command != "git status" || summary.ByCommand[0].FilterKind != "log" {
 		t.Fatalf("command aggregate = %#v", summary.ByCommand[0])
 	}
+	if len(summary.CommandRuns) != 1 || summary.CommandRuns[0].Command != "git status" || summary.CommandRuns[0].EstimatedTokensSaved != 5 {
+		t.Fatalf("command runs = %#v", summary.CommandRuns)
+	}
 	if chart := FormatStatsChart(summary); !strings.Contains(chart, "Activity") {
 		t.Fatalf("chart = %q", chart)
 	}

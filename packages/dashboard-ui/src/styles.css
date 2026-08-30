@@ -225,6 +225,20 @@ body {
   border-bottom: 0;
 }
 
+.command-table .command-row {
+  cursor: pointer;
+}
+
+.command-table .command-row:hover td,
+.command-table .command-row.selected td {
+  background: #e4f1ed;
+}
+
+.command-table .command-row:focus-visible {
+  outline: 2px solid #16836f;
+  outline-offset: -2px;
+}
+
 .command-table code {
   overflow-wrap: anywhere;
 }

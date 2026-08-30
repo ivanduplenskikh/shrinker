@@ -18,6 +18,7 @@ const emptySummary: Summary = {
   daily: [],
   byCommand: [],
   uncovered: [],
+  commandRuns: [],
 };
 
 function App() {

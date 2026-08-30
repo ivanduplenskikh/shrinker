@@ -44,6 +44,7 @@ type StatsSummary struct {
 	Daily                    []DailyStatsRow   `json:"daily"`
 	YearlyDaily              []DailyStatsRow   `json:"yearlyDaily"`
 	ByCommand                []CommandStatsRow `json:"byCommand"`
+	CommandRuns              []CommandRunRow   `json:"commandRuns"`
 }
 
 type DailyStatsRow struct {
@@ -59,6 +60,14 @@ type CommandStatsRow struct {
 	RawEstimatedTokens   int    `json:"rawEstimatedTokens"`
 	EstimatedTokensSaved int    `json:"estimatedTokensSaved"`
 	ReductionPercent     int    `json:"reductionPercent"`
+}
+type CommandRunRow struct {
+	Command               string `json:"command"`
+	CreatedAt             string `json:"createdAt"`
+	RawEstimatedTokens    int    `json:"rawEstimatedTokens"`
+	OutputEstimatedTokens int    `json:"outputEstimatedTokens"`
+	EstimatedTokensSaved  int    `json:"estimatedTokensSaved"`
+	Status                string `json:"status"`
 }
 
 type UncoveredStatistic struct {
@@ -231,6 +240,10 @@ func GetStats(databasePath string) (StatsSummary, error) {
 		return result, err
 	}
 	result.ByCommand, err = getCommandStats(database)
+	if err != nil {
+		return result, err
+	}
+	result.CommandRuns, err = getCommandRuns(database)
 	return result, err
 }
 
@@ -270,6 +283,27 @@ func getCommandStats(database *sql.DB) ([]CommandStatsRow, error) {
 			command += " " + subcommand
 		}
 		result = append(result, CommandStatsRow{Command: command, FilterKind: filterKind, Calls: runs, RawEstimatedTokens: raw, EstimatedTokensSaved: saved, ReductionPercent: ReductionPercent(raw, output)})
+	}
+	return result, rows.Err()
+}
+
+func getCommandRuns(database *sql.DB) ([]CommandRunRow, error) {
+	rows, err := database.Query(`SELECT created_at, command, raw_estimated_tokens, output_estimated_tokens, estimated_tokens_saved, status FROM (
+		SELECT created_at, command_name || CASE WHEN command_subcommand IS NULL OR command_subcommand = '' THEN '' ELSE ' ' || command_subcommand END AS command, raw_estimated_tokens, output_estimated_tokens, estimated_tokens_saved, 'Captured' AS status FROM runs
+		UNION ALL
+		SELECT created_at, executable || CASE WHEN subcommand IS NULL OR subcommand = '' THEN '' ELSE ' ' || subcommand END AS command, raw_estimated_tokens, raw_estimated_tokens AS output_estimated_tokens, 0 AS estimated_tokens_saved, 'Needs filter' AS status FROM uncovered_commands
+	) ORDER BY created_at ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []CommandRunRow{}
+	for rows.Next() {
+		var row CommandRunRow
+		if err := rows.Scan(&row.CreatedAt, &row.Command, &row.RawEstimatedTokens, &row.OutputEstimatedTokens, &row.EstimatedTokensSaved, &row.Status); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
 	}
 	return result, rows.Err()
 }
