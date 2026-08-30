@@ -148,6 +148,24 @@ func install(args []string) {
 		}
 	}
 	fmt.Printf("Installed shrinker at %s\n", binary)
+	if err := startDashboard(binary); err != nil {
+		fmt.Fprintf(os.Stderr, "[shrinker] could not start dashboard server: %v\n", err)
+		return
+	}
+	fmt.Println("Dashboard server running at http://127.0.0.1:4317")
+}
+
+func startDashboard(binary string) error {
+	command := dashboardServerCommand(binary)
+	return command.Start()
+}
+
+func dashboardServerCommand(binary string) *exec.Cmd {
+	command := exec.Command(binary, "stats", "--dashboard", "--dashboard-server")
+	command.Stdin = nil
+	command.Stdout = io.Discard
+	command.Stderr = io.Discard
+	return command
 }
 
 func confirmProfileRouting() bool {

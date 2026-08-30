@@ -53,6 +53,8 @@ The platform bootstrap script downloads one of these anonymous GitHub Release ar
 
 Network allowlists need access to `raw.githubusercontent.com` for the installer script and `github.com/ivanduplenskikh/shrinker/releases/download/...` for release assets.
 
+After installation, Shrinker starts its local dashboard server at `http://127.0.0.1:4317` in the background.
+
 ### Local checkout
 
 Install from a checkout:
