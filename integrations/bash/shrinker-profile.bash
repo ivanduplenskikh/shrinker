@@ -34,11 +34,24 @@ __shrinker_subcommand() {
 __shrinker_should_route() {
   local command_name="$1" rules subcommand
   shift
+  if __shrinker_is_windows_posix_shell && __shrinker_requires_unix_semantics "$command_name"; then
+    return 1
+  fi
   rules="$(__shrinker_rules_for "$command_name")"
   [ -n "$rules" ] || return 1
   [ "$rules" = '*' ] && return 0
   subcommand="$(__shrinker_subcommand "$command_name" "$@")"
   case " $rules " in *" $subcommand "*) return 0 ;; esac
+  return 1
+}
+
+__shrinker_is_windows_posix_shell() {
+  case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) return 0 ;; esac
+  return 1
+}
+
+__shrinker_requires_unix_semantics() {
+  case "$1" in cat|find|ls) return 0 ;; esac
   return 1
 }
 
