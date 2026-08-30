@@ -72,6 +72,20 @@ func TestBashProfileFile(t *testing.T) {
 	}
 }
 
+func TestInstalledManifestVersion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.json")
+	if err := os.WriteFile(path, []byte(`{"name":"shrinker","version":"0.15.0","target":"win-x64"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	version, err := installedManifestVersion(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version != "v0.15.0" {
+		t.Fatalf("version = %q, want v0.15.0", version)
+	}
+}
+
 func TestRemoveAllWithRetryRemovesDirectory(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "bin")

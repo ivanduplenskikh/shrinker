@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"bufio"
 	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -76,6 +77,7 @@ func install(args []string) {
 		fail(err.Error())
 	}
 	binDir := filepath.Join(*installDir, "bin")
+	installedVersion := "local build"
 	if err := os.MkdirAll(binDir, 0o700); err != nil {
 		fail(err.Error())
 	}
@@ -112,6 +114,9 @@ func install(args []string) {
 			}
 		}
 		root = *installDir
+		if version, err := installedManifestVersion(filepath.Join(*installDir, "manifest.json")); err == nil {
+			installedVersion = version
+		}
 	}
 	if *local {
 		if !fileExists(filepath.Join(root, "go.mod")) {
@@ -152,7 +157,7 @@ func install(args []string) {
 			fail(err.Error())
 		}
 	}
-	fmt.Printf("Installed shrinker at %s\n", binary)
+	fmt.Printf("Installed shrinker %s at %s\n", installedVersion, binary)
 	if err := startDashboard(binary); err != nil {
 		fmt.Fprintf(os.Stderr, "[shrinker] could not start dashboard server: %v\n", err)
 		return
@@ -171,6 +176,23 @@ func dashboardServerCommand(binary string) *exec.Cmd {
 	command.Stdout = io.Discard
 	command.Stderr = io.Discard
 	return command
+}
+
+func installedManifestVersion(path string) (string, error) {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	var release struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(contents, &release); err != nil {
+		return "", err
+	}
+	if release.Version == "" {
+		return "", errors.New("release manifest is missing a version")
+	}
+	return "v" + strings.TrimPrefix(release.Version, "v"), nil
 }
 
 func confirmProfileRouting() bool {
