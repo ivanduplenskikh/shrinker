@@ -5,6 +5,8 @@ import (
 	"archive/zip"
 	"compress/gzip"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,6 +64,32 @@ func TestDashboardServerCommandUsesInstalledBinary(t *testing.T) {
 	if command.Stdout != io.Discard || command.Stderr != io.Discard {
 		t.Fatal("dashboard server command must not hold installer output streams open")
 	}
+}
+
+func TestRemoveAllWithRetryRemovesDirectory(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "bin")
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := removeAllWithRetry(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("bin directory still exists: %v", err)
+	}
+}
+
+func TestRequestDashboardShutdownPostsToEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost || request.URL.Path != "/__shrinker_shutdown" {
+			t.Fatalf("request = %s %s", request.Method, request.URL.Path)
+		}
+		writer.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	requestDashboardShutdown(server.URL + "/__shrinker_shutdown")
 }
 
 func sameStrings(left, right []string) bool {

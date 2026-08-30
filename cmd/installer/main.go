@@ -5,9 +5,11 @@ import (
 	"archive/zip"
 	"bufio"
 	"compress/gzip"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -203,10 +205,38 @@ func uninstall(args []string) {
 			}
 		}
 	}
-	if err := os.RemoveAll(binDir); err != nil {
+	stopDashboardServer()
+	if err := removeAllWithRetry(binDir); err != nil {
 		fail(err.Error())
 	}
 	fmt.Printf("Removed shrinker from %s\n", binDir)
+}
+
+func stopDashboardServer() {
+	requestDashboardShutdown("http://127.0.0.1:4317/__shrinker_shutdown")
+}
+
+func requestDashboardShutdown(endpoint string) {
+	request, err := http.NewRequest(http.MethodPost, endpoint, nil)
+	if err != nil {
+		return
+	}
+	response, err := (&http.Client{Timeout: 2 * time.Second}).Do(request)
+	if err == nil {
+		response.Body.Close()
+	}
+}
+
+func removeAllWithRetry(path string) error {
+	var err error
+	for attempt := 0; attempt < 20; attempt++ {
+		err = os.RemoveAll(path)
+		if err == nil || !errors.Is(err, fs.ErrPermission) {
+			return err
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
 }
 
 func installRules(body string) error {
