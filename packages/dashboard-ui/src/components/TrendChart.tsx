@@ -6,77 +6,14 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "../../components/ui/chart";
-import type { CommandRun, DailyStat } from "../types";
+import type { CommandRun } from "../types";
 
-const chartConfig = {
-  estimatedTokensSaved: {
-    label: "Tokens saved",
-    color: "#16836f",
-  },
-} satisfies ChartConfig;
-
-function completeDailySeries(daily: DailyStat[]): DailyStat[] {
-  if (daily.length === 0) return [];
-
-  const valuesByDate = new Map(daily.map((row) => [row.date, row.estimatedTokensSaved]));
-  const dates = [...valuesByDate.keys()].sort();
-  const start = new Date(`${dates[0]}T00:00:00Z`);
-  const end = new Date(`${dates[dates.length - 1]}T00:00:00Z`);
-  const completeSeries: DailyStat[] = [];
-
-  for (let date = start; date <= end; date.setUTCDate(date.getUTCDate() + 1)) {
-    const key = date.toISOString().slice(0, 10);
-    completeSeries.push({ date: key, estimatedTokensSaved: valuesByDate.get(key) ?? 0 });
-  }
-
-  return completeSeries;
-}
+export type TimelineRange = "day" | "week" | "month" | "year";
 
 function formatTokenAxis(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}k`;
   return String(value);
-}
-
-export function TrendChart({ daily }: { daily: DailyStat[] }) {
-  const chartData = completeDailySeries(daily);
-
-  return (
-    <ChartContainer className="h-[300px] w-full" config={chartConfig}>
-      <AreaChart
-        accessibilityLayer
-        data={chartData}
-        margin={{ left: 12, right: 12 }}
-      >
-        <CartesianGrid vertical={false} />
-        <XAxis
-          axisLine={false}
-          dataKey="date"
-          tickFormatter={(value: string) => value.slice(5)}
-          tickLine={false}
-          tickMargin={8}
-        />
-        <YAxis
-          axisLine={false}
-          domain={[0, "auto"]}
-          tickFormatter={formatTokenAxis}
-          tickLine={false}
-          width={44}
-        />
-        <ChartTooltip
-          content={<ChartTooltipContent indicator="line" />}
-          cursor={false}
-        />
-        <Area
-          dataKey="estimatedTokensSaved"
-          fill="var(--color-estimatedTokensSaved)"
-          fillOpacity={0.35}
-          stroke="var(--color-estimatedTokensSaved)"
-          type="monotone"
-        />
-      </AreaChart>
-    </ChartContainer>
-  );
 }
 
 const runChartConfig = {
@@ -85,50 +22,78 @@ const runChartConfig = {
   estimatedTokensSaved: { label: "Saved", color: "#16836f" },
 } satisfies ChartConfig;
 
-function completeWeeklyRunSeries(runs: CommandRun[]) {
-  const totalsByDate = new Map<string, {
-    rawEstimatedTokens: number;
-    outputEstimatedTokens: number;
-    estimatedTokensSaved: number;
-    runs: number;
-  }>();
-  for (const run of runs) {
-    const date = run.createdAt.slice(0, 10);
-    const totals = totalsByDate.get(date) ?? {
-      rawEstimatedTokens: 0,
-      outputEstimatedTokens: 0,
-      estimatedTokensSaved: 0,
-      runs: 0,
-    };
-    totals.rawEstimatedTokens += run.rawEstimatedTokens;
-    totals.outputEstimatedTokens += run.outputEstimatedTokens;
-    totals.estimatedTokensSaved += run.estimatedTokensSaved;
-    totals.runs += 1;
-    totalsByDate.set(date, totals);
-  }
-
-  const latestDate = [...totalsByDate.keys()].sort().at(-1);
-  if (!latestDate) return [];
-  const end = new Date(`${latestDate}T00:00:00Z`);
-  const chartData = [];
-  for (let offset = 6; offset >= 0; offset -= 1) {
-    const date = new Date(end);
-    date.setUTCDate(end.getUTCDate() - offset);
-    const key = date.toISOString().slice(0, 10);
-    chartData.push({
-      date: key,
-      rawEstimatedTokens: 0,
-      outputEstimatedTokens: 0,
-      estimatedTokensSaved: 0,
-      runs: 0,
-      ...totalsByDate.get(key),
-    });
-  }
-  return chartData;
+interface TimelinePoint {
+  label: string;
+  rawEstimatedTokens: number;
+  outputEstimatedTokens: number;
+  estimatedTokensSaved: number;
+  runs: number;
 }
 
-export function CommandRunChart({ runs }: { runs: CommandRun[] }) {
-  const chartData = completeWeeklyRunSeries(runs);
+function startOfWeek(today: Date): Date {
+  const locale = new Intl.Locale(navigator.language) as Intl.Locale & {
+    getWeekInfo?: () => { firstDay: number };
+  };
+  const firstDay = locale.getWeekInfo?.().firstDay ?? 1;
+  const start = new Date(today);
+  start.setDate(today.getDate() - ((today.getDay() - (firstDay % 7) + 7) % 7));
+  return start;
+}
+
+function makeTimeline(range: TimelineRange, today: Date): { start: Date; points: TimelinePoint[] } {
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const points: TimelinePoint[] = [];
+  const addPoint = (label: string) => points.push({ label, rawEstimatedTokens: 0, outputEstimatedTokens: 0, estimatedTokensSaved: 0, runs: 0 });
+
+  if (range === "day") {
+    for (let hour = 0; hour < 24; hour += 1) addPoint(`${String(hour).padStart(2, "0")}:00`);
+  } else if (range === "week") {
+    const weekStart = startOfWeek(start);
+    start.setTime(weekStart.getTime());
+    for (let day = 0; day < 7; day += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + day);
+      addPoint(date.toLocaleDateString(undefined, { weekday: "short" }));
+    }
+  } else if (range === "month") {
+    start.setDate(1);
+    const days = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+    for (let day = 1; day <= days; day += 1) addPoint(String(day));
+  } else {
+    start.setMonth(0, 1);
+    for (let month = 0; month < 12; month += 1) {
+      addPoint(new Date(start.getFullYear(), month, 1).toLocaleDateString(undefined, { month: "short" }));
+    }
+  }
+  return { start, points };
+}
+
+function completeRunSeries(runs: CommandRun[], range: TimelineRange): TimelinePoint[] {
+  const { start, points } = makeTimeline(range, new Date());
+  const end = new Date(start);
+  if (range === "day") end.setDate(end.getDate() + 1);
+  else if (range === "week") end.setDate(end.getDate() + 7);
+  else if (range === "month") end.setMonth(end.getMonth() + 1);
+  else end.setFullYear(end.getFullYear() + 1);
+
+  for (const run of runs) {
+    const timestamp = new Date(`${run.createdAt.replace(" ", "T")}Z`);
+    if (timestamp < start || timestamp >= end) continue;
+    const index = range === "day" ? timestamp.getHours()
+      : range === "week" ? Math.floor((new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate()).getTime() - start.getTime()) / 86_400_000)
+        : range === "month" ? timestamp.getDate() - 1
+          : timestamp.getMonth();
+    const point = points[index];
+    point.rawEstimatedTokens += run.rawEstimatedTokens;
+    point.outputEstimatedTokens += run.outputEstimatedTokens;
+    point.estimatedTokensSaved += run.estimatedTokensSaved;
+    point.runs += 1;
+  }
+  return points;
+}
+
+export function CommandRunChart({ runs, range }: { runs: CommandRun[]; range: TimelineRange }) {
+  const chartData = completeRunSeries(runs, range);
 
   return (
     <ChartContainer className="h-[300px] w-full" config={runChartConfig}>
@@ -136,9 +101,8 @@ export function CommandRunChart({ runs }: { runs: CommandRun[] }) {
         <CartesianGrid vertical={false} />
         <XAxis
           axisLine={false}
-          dataKey="date"
+          dataKey="label"
           interval={0}
-          tickFormatter={(value: string) => new Date(`${value}T00:00:00Z`).toLocaleDateString(undefined, { weekday: "short" })}
           tickLine={false}
           tickMargin={8}
         />
@@ -146,8 +110,7 @@ export function CommandRunChart({ runs }: { runs: CommandRun[] }) {
         <ChartTooltip
           content={<ChartTooltipContent indicator="dashed" labelFormatter={(label, payload) => {
             const runCount = payload[0]?.payload?.runs ?? 0;
-            const date = new Date(`${String(label)}T00:00:00Z`).toLocaleDateString();
-            return `${date} | ${runCount} ${runCount === 1 ? "run" : "runs"}`;
+            return `${String(label)} | ${runCount} ${runCount === 1 ? "run" : "runs"}`;
           }} />}
           cursor={false}
         />

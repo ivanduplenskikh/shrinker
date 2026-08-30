@@ -1,19 +1,16 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import { useState } from "react";
 import { CommandTable } from "./components/CommandTable";
 import { SummaryCards } from "./components/SummaryCards";
-import { CommandRunChart, TrendChart } from "./components/TrendChart";
+import { CommandRunChart, type TimelineRange } from "./components/TrendChart";
 import type { Summary } from "./types";
 import "./styles.css";
 
 export function Dashboard({ summary }: { summary: Summary }) {
   const [selectedCommand, setSelectedCommand] = useState<string | null>(null);
-  const selectedRuns = selectedCommand === null
-    ? []
-    : summary.commandRuns.filter((run) => run.command === selectedCommand);
+  const [range, setRange] = useState<TimelineRange>("day");
+  const selectedRuns = selectedCommand === null ? summary.commandRuns : summary.commandRuns.filter((run) => run.command === selectedCommand);
+  const commands = [...new Set(summary.commandRuns.map((run) => run.command))].sort();
 
   return (
     <main className="page-shell">
@@ -27,14 +24,13 @@ export function Dashboard({ summary }: { summary: Summary }) {
       <Card className="panel">
         <CardContent>
           <div className="section-heading">
-            {selectedCommand === null ? (
-              <Tooltip>
-                <TooltipTrigger render={<Button type="button" variant="outline" className="gap-2 rounded-full px-3 py-2" aria-label="More about tokens saved over time"><p className="eyebrow">Trend</p><QuestionMarkCircledIcon /></Button>} />
-                <TooltipContent>Tokens saved over time</TooltipContent>
-              </Tooltip>
-            ) : <><div><p className="eyebrow">Run history</p><h2>{selectedCommand}</h2></div><Button type="button" variant="outline" onClick={() => setSelectedCommand(null)}>All commands</Button></>}
+            <div><p className="eyebrow">Run history</p><h2>{selectedCommand ?? "All commands"}</h2></div>
+            <div className="chart-controls">
+              <label>Command<select value={selectedCommand ?? ""} onChange={(event) => setSelectedCommand(event.target.value || null)}><option value="">All commands</option>{commands.map((command) => <option key={command} value={command}>{command}</option>)}</select></label>
+              <label>Range<select value={range} onChange={(event) => setRange(event.target.value as TimelineRange)}><option value="day">Today</option><option value="week">This week</option><option value="month">This month</option><option value="year">This year</option></select></label>
+            </div>
           </div>
-          {selectedCommand === null ? <TrendChart daily={summary.daily} /> : <CommandRunChart runs={selectedRuns} />}
+          <CommandRunChart runs={selectedRuns} range={range} />
         </CardContent>
       </Card>
       <Card className="panel">
