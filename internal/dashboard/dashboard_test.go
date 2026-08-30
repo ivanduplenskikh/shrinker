@@ -28,8 +28,8 @@ func TestRenderEscapesScriptPayload(t *testing.T) {
 	if !strings.Contains(html, "Top commands") || !strings.Contains(html, "git status") || !strings.Contains(html, "git-status") {
 		t.Fatal("combined command statistics are missing")
 	}
-	if !strings.Contains(html, "Tokens saved over time") || !strings.Contains(html, "Tokens saved") || !strings.Contains(html, "Date") {
-		t.Fatal("chart axis labels are missing")
+	if !strings.Contains(html, "Run history") || !strings.Contains(html, "Tokens saved") || !strings.Contains(html, "All commands") {
+		t.Fatal("run history chart section is missing")
 	}
 }
 
