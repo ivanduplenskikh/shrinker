@@ -5,19 +5,18 @@ import (
 	"testing"
 )
 
-func TestRenderCapsUnboundedGitLogMeasurementToFirstPage(t *testing.T) {
-	input := strings.Repeat("commit detail\n", 40)
-	_, measurement := render(input, false, false, "git-log", 120, 40, 0, []string{"git", "log"})
-	wantInput := firstLines(input, 24)
-	if measurement.RawBytes != len([]byte(wantInput)) {
-		t.Fatalf("raw bytes = %d, want %d", measurement.RawBytes, len([]byte(wantInput)))
+func TestWithDefaultGitLogLimitAddsTenCommitLimit(t *testing.T) {
+	got := withDefaultGitLogLimit([]string{"git", "log"})
+	want := []string{"git", "log", "-n", "10"}
+	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("command = %q, want %q", got, want)
 	}
 }
 
-func TestRenderMeasuresExplicitlyBoundedGitLogInFull(t *testing.T) {
-	input := strings.Repeat("commit detail\n", 40)
-	_, measurement := render(input, false, false, "git-log", 120, 40, 0, []string{"git", "log", "-n", "40"})
-	if measurement.RawBytes != len([]byte(input)) {
-		t.Fatalf("raw bytes = %d, want %d", measurement.RawBytes, len([]byte(input)))
+func TestWithDefaultGitLogLimitPreservesExplicitLimit(t *testing.T) {
+	command := []string{"git", "log", "--max-count=40"}
+	got := withDefaultGitLogLimit(command)
+	if strings.Join(got, "\x00") != strings.Join(command, "\x00") {
+		t.Fatalf("command = %q, want %q", got, command)
 	}
 }

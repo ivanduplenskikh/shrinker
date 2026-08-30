@@ -218,7 +218,7 @@ shrinker last --path
 
 `raw` retrieves the exact capture referenced by a hint; `last` is a convenience for human use. The cache uses atomic publication and best-effort rotation to retain up to 20 recent files. File names contain only the executable name, not command arguments. Wrapped `git log` output never creates a recovery file or hint because the full history can be reproduced by rerunning Git; piped Git-log text still gets a recovery hint when meaningful content is omitted. Use `--no-save` for other output that should not be persisted.
 
-For an unbounded `git log`, savings statistics count only the first 24 output lines, equivalent to one terminal page. Commands with an explicit `-n` or `--max-count` use their complete output for measurements.
+For an unbounded `git log`, Shrinker adds `-n 10`, so agents receive a predictable ten-commit result and savings statistics compare that complete raw output with the compact output. Commands with an explicit `-n` or `--max-count` keep their requested limit.
 
 ## Coverage gaps
 

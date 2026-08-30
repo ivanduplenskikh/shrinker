@@ -279,6 +279,7 @@ optionsDone:
 	if len(args) == 0 {
 		fail("shrinker: exec requires a command")
 	}
+	args = withDefaultGitLogLimit(args)
 
 	result, err := execution.RunCommand(args[0], args[1:])
 	if err != nil {
@@ -352,16 +353,20 @@ func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines, pe
 			output = result.Output
 		}
 	}
-	measurementInput := input
-	if !raw && filters.Detect(command) == "git-log" && !gitLogHasExplicitLimit(command) {
-		measurementInput = firstLines(input, 24)
-	}
-	measurements := metrics.Measure(measurementInput, output)
+	measurements := metrics.Measure(input, output)
 	if showMetrics {
 		fmt.Fprintln(os.Stderr, metrics.FormatMeasurements(measurements, &durationMs))
 	}
 	fmt.Fprintln(os.Stdout, output)
 	return omitted && output != input, measurements
+}
+
+func withDefaultGitLogLimit(command []string) []string {
+	if filters.Detect(command) != "git-log" || gitLogHasExplicitLimit(command) {
+		return command
+	}
+	limited := append([]string{}, command...)
+	return append(limited, "-n", "10")
 }
 
 func gitLogHasExplicitLimit(command []string) bool {
@@ -374,14 +379,6 @@ func gitLogHasExplicitLimit(command []string) bool {
 		}
 	}
 	return false
-}
-
-func firstLines(input string, limit int) string {
-	lines := strings.Split(input, "\n")
-	if len(lines) <= limit {
-		return input
-	}
-	return strings.Join(lines[:limit], "\n")
 }
 
 func readInput() (string, error) {
