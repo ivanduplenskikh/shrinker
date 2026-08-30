@@ -93,6 +93,13 @@ _shrink_should_route() {
   (( ${allowlist[(Ie)$subcommand]} > 0 ))
 }
 
+_shrink_records_subcommand() {
+  case "$1" in
+    git|npm|docker|kubectl|gh) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 _shrink_track_uncovered() {
   local cmd="$1"
   local bytes="$2"
@@ -103,7 +110,11 @@ _shrink_track_uncovered() {
   command -v shrinker >/dev/null 2>&1 || return 0
 
   local subcommand
-  subcommand="$(_shrink_get_subcommand "$cmd" "$@")"
+  if _shrink_records_subcommand "$cmd"; then
+    subcommand="$(_shrink_get_subcommand "$cmd" "$@")"
+  else
+    subcommand=""
+  fi
 
   local -a track_args
   track_args=(track --executable "$cmd" --bytes "$bytes" --exit-code "$status_code")

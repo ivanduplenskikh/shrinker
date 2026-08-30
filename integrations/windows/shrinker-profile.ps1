@@ -67,6 +67,12 @@ function Use-ShrinkRouting {
     return $allowlist -contains $subcommand
 }
 
+function Test-ShrinkRecordsSubcommand {
+    param([string]$CommandName)
+
+    return @("git", "npm", "docker", "kubectl", "gh") -contains $CommandName
+}
+
 function Get-ShrinkCommandPath {
     $installed = Join-Path $HOME ".shrinker\bin\shrinker.exe"
     if (Test-Path -LiteralPath $installed) {
@@ -132,7 +138,7 @@ function Write-ShrinkUncovered {
     if (-not $shrinkCommand) { return }
 
     $trackArgs = @("track", "--executable", $CommandName, "--bytes", $Bytes, "--exit-code", $ExitCode)
-    $subcommand = Get-ShrinkSubcommand -CommandName $CommandName -Arguments $Arguments
+    $subcommand = if (Test-ShrinkRecordsSubcommand -CommandName $CommandName) { Get-ShrinkSubcommand -CommandName $CommandName -Arguments $Arguments } else { "" }
     if ($subcommand) {
         $trackArgs += @("--subcommand", $subcommand)
     }

@@ -128,6 +128,8 @@ CREATE TABLE IF NOT EXISTS uncovered_commands (
 );
 CREATE INDEX IF NOT EXISTS uncovered_created_at_idx ON uncovered_commands(created_at);
 CREATE INDEX IF NOT EXISTS uncovered_command_idx ON uncovered_commands(executable, subcommand);
+UPDATE runs SET command_subcommand = NULL WHERE command_name NOT IN ('git', 'npm', 'docker', 'kubectl', 'gh');
+UPDATE uncovered_commands SET subcommand = NULL WHERE executable NOT IN ('git', 'npm', 'docker', 'kubectl', 'gh');
 `)
 	if err != nil {
 		database.Close()
@@ -137,13 +139,17 @@ CREATE INDEX IF NOT EXISTS uncovered_command_idx ON uncovered_commands(executabl
 }
 
 func RecordRun(stat RunStatistic, databasePath string) error {
+	commandName := SanitizeToken(stat.CommandName)
+	if commandName == "" {
+		return nil
+	}
 	database, err := openDatabase(databasePath)
 	if err != nil {
 		return err
 	}
 	defer database.Close()
 	_, err = database.Exec(`INSERT INTO runs (mode, filter_kind, command_name, command_subcommand, raw_bytes, output_bytes, raw_estimated_tokens, output_estimated_tokens, estimated_tokens_saved, reduction_percent, duration_ms, omitted, exit_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		stat.Mode, stat.FilterKind, stat.CommandName, nullable(stat.CommandSubcommand), stat.Measurements.RawBytes, stat.Measurements.OutputBytes,
+		stat.Mode, stat.FilterKind, commandName, nullable(SanitizeSubcommand(commandName, stat.CommandSubcommand)), stat.Measurements.RawBytes, stat.Measurements.OutputBytes,
 		stat.Measurements.RawEstimatedTokens, stat.Measurements.OutputEstimatedTokens, stat.Measurements.EstimatedTokensSaved,
 		stat.Measurements.ReductionPercent, stat.DurationMs, boolInt(stat.Omitted), stat.ExitCode)
 	return err
@@ -162,7 +168,7 @@ func RecordUncovered(stat UncoveredStatistic, databasePath string) error {
 		return err
 	}
 	defer database.Close()
-	_, err = database.Exec(`INSERT INTO uncovered_commands (source, reason, executable, subcommand, raw_bytes, raw_estimated_tokens, exit_code) VALUES (?, ?, ?, ?, ?, ?, ?)`, stat.Source, stat.Reason, executable, nullable(SanitizeToken(stat.Subcommand)), max(0, stat.RawBytes), max(0, stat.RawEstimatedTokens), stat.ExitCode)
+	_, err = database.Exec(`INSERT INTO uncovered_commands (source, reason, executable, subcommand, raw_bytes, raw_estimated_tokens, exit_code) VALUES (?, ?, ?, ?, ?, ?, ?)`, stat.Source, stat.Reason, executable, nullable(SanitizeSubcommand(executable, stat.Subcommand)), max(0, stat.RawBytes), max(0, stat.RawEstimatedTokens), stat.ExitCode)
 	return err
 }
 

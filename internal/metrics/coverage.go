@@ -23,6 +23,7 @@ type CommandSignature struct {
 }
 
 var tokenPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._+\-]{0,63}$`)
+var subcommandExecutables = map[string]bool{"git": true, "npm": true, "docker": true, "kubectl": true, "gh": true}
 
 func CoverageEnabled() bool {
 	return config.IsTruthy(config.ResolveSetting("SHRINKER_TRACK_UNCOVERED", config.DefaultPath()))
@@ -36,6 +37,13 @@ func SanitizeToken(value string) string {
 	return ""
 }
 
+func SanitizeSubcommand(executable, value string) string {
+	if !subcommandExecutables[executable] {
+		return ""
+	}
+	return SanitizeToken(value)
+}
+
 func CommandSignatureFor(command []string) (CommandSignature, bool) {
 	if len(command) == 0 {
 		return CommandSignature{}, false
@@ -43,6 +51,9 @@ func CommandSignatureFor(command []string) (CommandSignature, bool) {
 	executable := SanitizeToken(strings.TrimSuffix(filepath.Base(command[0]), filepath.Ext(command[0])))
 	if executable == "" {
 		return CommandSignature{}, false
+	}
+	if !subcommandExecutables[executable] {
+		return CommandSignature{Executable: executable}, true
 	}
 	valueFlags := map[string]bool{"-C": true, "-c": true, "--git-dir": true, "--work-tree": true, "--namespace": true, "--prefix": true, "--cache": true, "--registry": true, "--workspace": true, "-w": true, "--dir": true, "--cwd": true, "-H": true, "--host": true, "--context": true, "--config": true, "-n": true, "-o": true, "--output": true, "--kubeconfig": true, "--cluster": true, "--user": true, "-R": true, "--repo": true}
 	for index := 1; index < len(command); index++ {
@@ -54,7 +65,7 @@ func CommandSignatureFor(command []string) (CommandSignature, bool) {
 		if strings.HasPrefix(part, "-") {
 			continue
 		}
-		return CommandSignature{Executable: executable, Subcommand: SanitizeToken(part)}, true
+		return CommandSignature{Executable: executable, Subcommand: SanitizeSubcommand(executable, part)}, true
 	}
 	return CommandSignature{Executable: executable}, true
 }

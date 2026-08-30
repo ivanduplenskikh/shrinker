@@ -37,3 +37,20 @@ func TestRecordRunAndGetStats(t *testing.T) {
 		t.Fatalf("chart = %q", chart)
 	}
 }
+
+func TestRecordRunOmitsUnsafeSubcommand(t *testing.T) {
+	databasePath := t.TempDir() + "/stats.db"
+	if err := RecordRun(RunStatistic{
+		Mode: "exec", FilterKind: "log", CommandName: "cat", CommandSubcommand: "photo_1.jpg",
+		Measurements: Measure("raw", "output"),
+	}, databasePath); err != nil {
+		t.Fatal(err)
+	}
+	summary, err := GetStats(databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summary.ByCommand) != 1 || summary.ByCommand[0].Command != "cat" {
+		t.Fatalf("command statistics = %#v", summary.ByCommand)
+	}
+}
