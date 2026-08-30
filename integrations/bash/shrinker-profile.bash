@@ -71,7 +71,7 @@ _shrinker_native() {
   local command_name="$1" capture status_code bytes
   shift
   if _shrinker_tracking_enabled && [ ! -t 1 ]; then
-    capture="$(mktemp -t shrinker-track)" || { command "$command_name" "$@"; return $?; }
+    capture="$(mktemp -t shrinker-track.XXXXXX)" || { command "$command_name" "$@"; return $?; }
     command "$command_name" "$@" | tee "$capture"
     status_code=${PIPESTATUS[0]}
     bytes="$(wc -c < "$capture" | tr -d ' ')"
@@ -97,13 +97,13 @@ _shrinker_invoke() {
 
 SHRINKER_TRACK_UNCOVERED_DEFAULT=""
 _shrinker_load_config
-git() { _shrinker_invoke git "$@"; }
-npm() { _shrinker_invoke npm "$@"; }
-docker() { _shrinker_invoke docker "$@"; }
-kubectl() { _shrinker_invoke kubectl "$@"; }
-gh() { _shrinker_invoke gh "$@"; }
-rg() { _shrinker_invoke rg "$@"; }
-find() { _shrinker_invoke find "$@"; }
-tail() { _shrinker_invoke tail "$@"; }
-cat() { _shrinker_invoke cat "$@"; }
-ls() { _shrinker_invoke ls "$@"; }
+function git { _shrinker_invoke git "$@"; }
+function npm { _shrinker_invoke npm "$@"; }
+function docker { _shrinker_invoke docker "$@"; }
+function kubectl { _shrinker_invoke kubectl "$@"; }
+function gh { _shrinker_invoke gh "$@"; }
+function rg { _shrinker_invoke rg "$@"; }
+function find { _shrinker_invoke find "$@"; }
+function tail { _shrinker_invoke tail "$@"; }
+function cat { _shrinker_invoke cat "$@"; }
+function ls { _shrinker_invoke ls "$@"; }
