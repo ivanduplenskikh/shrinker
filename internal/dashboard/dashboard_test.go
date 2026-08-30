@@ -25,11 +25,11 @@ func TestRenderEscapesScriptPayload(t *testing.T) {
 	if !strings.Contains(html, `name="generator" content="shrinker-dashboard"`) {
 		t.Fatal("dashboard marker is missing")
 	}
-	if !strings.Contains(html, "Top commands") || !strings.Contains(html, "git status") || !strings.Contains(html, "git-status") {
-		t.Fatal("combined command statistics are missing")
+	if !strings.Contains(html, `src="/assets/dashboard.js"`) || !strings.Contains(html, `href="/assets/index.css"`) {
+		t.Fatal("dashboard asset references are missing")
 	}
-	if !strings.Contains(html, "Run history") || !strings.Contains(html, "Tokens saved") || !strings.Contains(html, "All commands") {
-		t.Fatal("run history chart section is missing")
+	if !strings.Contains(html, `window.__SHRINKER_STATS__=`) || !strings.Contains(html, `"command":"git status"`) {
+		t.Fatal("dashboard statistics payload is missing")
 	}
 }
 
@@ -47,6 +47,23 @@ func TestHandlerServesAndShutsDown(t *testing.T) {
 	body, _ := io.ReadAll(record.Result().Body)
 	if !strings.Contains(string(body), "Shrinker stats") {
 		t.Fatal("dashboard body missing title")
+	}
+
+	for assetPath, contentTypeFragment := range map[string]string{
+		"/assets/dashboard.js":        "javascript",
+		"/assets/rolldown-runtime.js": "javascript",
+		"/assets/vendor.js":           "javascript",
+		"/assets/charts.js":           "javascript",
+		"/assets/index.css":           "text/css",
+	} {
+		asset := httptest.NewRecorder()
+		handler.ServeHTTP(asset, httptest.NewRequest(http.MethodGet, assetPath, nil))
+		if asset.Code != http.StatusOK {
+			t.Fatalf("%s status = %d", assetPath, asset.Code)
+		}
+		if !strings.Contains(asset.Header().Get("Content-Type"), contentTypeFragment) {
+			t.Fatalf("%s content type = %q", assetPath, asset.Header().Get("Content-Type"))
+		}
 	}
 
 	shutdown := httptest.NewRecorder()

@@ -1,13 +1,16 @@
 package dashboard
 
 import (
+	"bytes"
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ivanduplenskikh/shrinker/internal/metrics"
 )
@@ -15,11 +18,8 @@ import (
 //go:embed ui/app.html
 var dashboardShell string
 
-//go:embed ui/assets/app.css
-var dashboardCSS string
-
-//go:embed ui/assets/dashboard.js
-var dashboardJS string
+//go:embed ui/assets/*
+var dashboardAssets embed.FS
 
 type payload struct {
 	Summary                   metrics.StatsSummary `json:"summary"`
@@ -32,10 +32,9 @@ func Render(summary metrics.StatsSummary) (string, error) {
 		return "", err
 	}
 	jsonValue := strings.ReplaceAll(string(encoded), "<", "\\u003c")
-	output := strings.Replace(dashboardShell, `    <script type="module" crossorigin src="/assets/dashboard.js"></script>`, `<script>window.__SHRINKER_STATS__=`+jsonValue+`;</script><script>window.addEventListener('DOMContentLoaded',()=>{`+dashboardJS+`});</script>`, 1)
-	output = strings.Replace(output, `    <link rel="stylesheet" crossorigin href="/assets/app.css">`, `<style>`+dashboardCSS+`</style>`, 1)
+	output := strings.Replace(dashboardShell, "  </head>", `    <script>window.__SHRINKER_STATS__=`+jsonValue+`;</script>`+"\n  </head>", 1)
 	if output == dashboardShell {
-		return "", errors.New("dashboard shell is missing asset placeholders")
+		return "", errors.New("dashboard shell is missing head placeholder")
 	}
 	return output, nil
 }
@@ -56,6 +55,20 @@ func Handler(getSummary func() (metrics.StatsSummary, error), server *http.Serve
 		if request.Method == http.MethodPost && request.URL.Path == "/__shrinker_shutdown" {
 			writer.WriteHeader(http.StatusNoContent)
 			go server.Shutdown(context.Background())
+			return
+		}
+		if request.Method == http.MethodGet && strings.HasPrefix(request.URL.Path, "/assets/") {
+			assetPath := strings.TrimPrefix(request.URL.Path, "/")
+			if !fs.ValidPath(assetPath) {
+				http.NotFound(writer, request)
+				return
+			}
+			asset, err := dashboardAssets.ReadFile("ui/" + assetPath)
+			if err != nil {
+				http.NotFound(writer, request)
+				return
+			}
+			http.ServeContent(writer, request, assetPath, time.Time{}, bytes.NewReader(asset))
 			return
 		}
 		if request.URL.Path != "/" {

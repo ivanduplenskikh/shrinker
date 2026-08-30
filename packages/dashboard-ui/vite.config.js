@@ -43,7 +43,7 @@ export default defineConfig({
   },
   build: {
     assetsDir: "assets",
-    rollupOptions: {
+    rolldownOptions: {
       input: "index.html",
       output: {
         entryFileNames: "assets/dashboard.js",

@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -7,7 +6,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  font-family: "Manrope", sans-serif;
+  font-family: "Geist Variable", system-ui, sans-serif;
   color: #17202a;
   background: #edf4f2;
   font-synthesis: none;
