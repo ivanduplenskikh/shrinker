@@ -32,11 +32,25 @@ if ($DisableUncoveredTracking) { $arguments += "--track-uncovered=false" }
 if ($Version) { $arguments += @("--version", $Version) }
 $arguments += @("--install-dir", $InstallDir, "--profile-path", $ProfilePath, "--config-path", $ConfigPath)
 
+function Enable-ShrinkerInCurrentSession {
+    $binDir = Join-Path $InstallDir "bin"
+    if ((Test-Path -LiteralPath $binDir) -and -not (($env:Path -split [IO.Path]::PathSeparator) -contains $binDir)) {
+        $env:Path = "$binDir$([IO.Path]::PathSeparator)$env:Path"
+    }
+
+    $integration = Join-Path $InstallDir "integrations\windows\shrinker-profile.ps1"
+    $profileContent = if (Test-Path -LiteralPath $ProfilePath) { Get-Content -LiteralPath $ProfilePath -Raw } else { "" }
+    if ((Test-Path -LiteralPath $integration) -and $profileContent.Contains("# >>> shrinker integration >>>")) {
+        . $integration
+    }
+}
+
 if ($Local) {
     $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
     Push-Location $repositoryRoot
     try {
         & go run ./cmd/installer @arguments
+        if ($LASTEXITCODE -eq 0) { Enable-ShrinkerInCurrentSession }
         return $LASTEXITCODE
     }
     finally {
@@ -57,6 +71,7 @@ try {
     if (-not (Test-Path $installer)) { throw "Release archive is missing bin\installer.exe" }
     $arguments += @("--archive", $archive)
     & $installer @arguments
+    if ($LASTEXITCODE -eq 0) { Enable-ShrinkerInCurrentSession }
     return $LASTEXITCODE
 }
 finally {

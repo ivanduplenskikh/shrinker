@@ -86,6 +86,8 @@ go run ./cmd/installer install --local --enable-profile-routing
 go run ./cmd/installer uninstall
 ```
 
+The PowerShell bootstrap makes `shrinker` available in the PowerShell session that ran the install. A CMD session cannot be changed by an installer process; open a new CMD window after installation to pick up the persisted user `PATH`.
+
 ```powershell
 go test ./...
 go build -o dist\shrinker.exe .\cmd\shrinker
