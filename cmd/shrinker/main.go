@@ -1,12 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ivanduplenskikh/shrinker/internal/dashboard"
 	"github.com/ivanduplenskikh/shrinker/internal/execution"
@@ -17,6 +20,7 @@ import (
 const usage = `Usage:
   shrinker <command> [args...]
   shrinker exec [--] <command> [args...]
+  shrinker update-check
   shrinker pipe [--kind log] [--max-lines <number>]
   shrinker stats [--json] [--chart] --dashboard [--dashboard-server] [--port <number>]
   shrinker track --executable <name> [--subcommand <name>] [--bytes <number>] [--exit-code <number>]
@@ -29,6 +33,13 @@ func main() {
 	args := os.Args[1:]
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
 		fmt.Print(usage)
+		return
+	}
+	if args[0] == "update-check" {
+		if len(args) != 1 {
+			fail("update-check does not accept arguments")
+		}
+		checkForUpdate()
 		return
 	}
 
@@ -367,6 +378,120 @@ func withDefaultGitLogLimit(command []string) []string {
 	}
 	limited := append([]string{}, command...)
 	return append(limited, "-n", "10")
+}
+
+const updateCheckInterval = 24 * time.Hour
+
+type installedManifest struct {
+	Version string `json:"version"`
+}
+
+type updateCheckState struct {
+	CheckedAt       time.Time `json:"checkedAt"`
+	NotifiedVersion string    `json:"notifiedVersion"`
+}
+
+func checkForUpdate() {
+	version, installDir, ok := installedVersion()
+	if !ok {
+		return
+	}
+	statePath := filepath.Join(installDir, "update-check.json")
+	state := readUpdateCheckState(statePath)
+	if time.Since(state.CheckedAt) < updateCheckInterval {
+		return
+	}
+	latest, ok := latestReleaseVersion()
+	state.CheckedAt = time.Now()
+	if !ok {
+		writeUpdateCheckState(statePath, state)
+		return
+	}
+	if versionLessThan(version, latest) && state.NotifiedVersion != latest {
+		_ = os.WriteFile(filepath.Join(installDir, "update-notice"), []byte(fmt.Sprintf("[shrinker] Update available: v%s (installed: v%s)\n", latest, version)), 0o600)
+		state.NotifiedVersion = latest
+	}
+	writeUpdateCheckState(statePath, state)
+}
+
+func installedVersion() (string, string, bool) {
+	executable, err := os.Executable()
+	if err != nil {
+		return "", "", false
+	}
+	installDir := filepath.Dir(filepath.Dir(executable))
+	contents, err := os.ReadFile(filepath.Join(installDir, "manifest.json"))
+	if err != nil {
+		return "", "", false
+	}
+	var manifest installedManifest
+	if json.Unmarshal(contents, &manifest) != nil || manifest.Version == "" {
+		return "", "", false
+	}
+	return strings.TrimPrefix(manifest.Version, "v"), installDir, true
+}
+
+func latestReleaseVersion() (string, bool) {
+	request, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/ivanduplenskikh/shrinker/releases/latest", nil)
+	if err != nil {
+		return "", false
+	}
+	request.Header.Set("Accept", "application/vnd.github+json")
+	request.Header.Set("User-Agent", "shrinker-update-check")
+	response, err := (&http.Client{Timeout: 2 * time.Second}).Do(request)
+	if err != nil || response.StatusCode != http.StatusOK {
+		if response != nil {
+			response.Body.Close()
+		}
+		return "", false
+	}
+	defer response.Body.Close()
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if json.NewDecoder(response.Body).Decode(&release) != nil || release.TagName == "" {
+		return "", false
+	}
+	return strings.TrimPrefix(release.TagName, "v"), true
+}
+
+func readUpdateCheckState(path string) updateCheckState {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return updateCheckState{}
+	}
+	var state updateCheckState
+	if json.Unmarshal(contents, &state) != nil {
+		return updateCheckState{}
+	}
+	return state
+}
+
+func writeUpdateCheckState(path string, state updateCheckState) {
+	contents, err := json.Marshal(state)
+	if err == nil {
+		_ = os.WriteFile(path, contents, 0o600)
+	}
+}
+
+func versionLessThan(current, latest string) bool {
+	parse := func(version string) [3]int {
+		var result [3]int
+		for component, value := range strings.Split(strings.SplitN(version, "-", 2)[0], ".") {
+			if component >= len(result) {
+				break
+			}
+			result[component], _ = strconv.Atoi(value)
+		}
+		return result
+	}
+	left, right := parse(current), parse(latest)
+	for index := range left {
+		if left[index] != right[index] {
+			return left[index] < right[index]
+		}
+	}
+	return false
 }
 
 func gitLogHasExplicitLimit(command []string) bool {

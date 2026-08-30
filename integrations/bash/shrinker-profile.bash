@@ -110,6 +110,14 @@ __shrinker_invoke() {
 
 SHRINKER_TRACK_UNCOVERED_DEFAULT=""
 __shrinker_load_config
+__shrinker_update_notice="${SHRINKER_INSTALL_DIR:-$HOME/.shrinker}/update-notice"
+if [ -r "$__shrinker_update_notice" ]; then
+  cat "$__shrinker_update_notice"
+  rm -f "$__shrinker_update_notice"
+fi
+if [ "${SHRINKER_DISABLE_UPDATE_CHECK:-}" != "1" ] && command -v shrinker >/dev/null 2>&1; then
+  (command shrinker update-check >/dev/null 2>&1 &)
+fi
 function git { __shrinker_invoke git "$@"; }
 function npm { __shrinker_invoke npm "$@"; }
 function docker { __shrinker_invoke docker "$@"; }

@@ -20,3 +20,9 @@ func TestWithDefaultGitLogLimitPreservesExplicitLimit(t *testing.T) {
 		t.Fatalf("command = %q, want %q", got, command)
 	}
 }
+
+func TestVersionLessThan(t *testing.T) {
+	if !versionLessThan("0.15.0", "0.16.0") || !versionLessThan("0.15", "0.15.1") || versionLessThan("0.16.0", "0.16.0") || versionLessThan("0.17.0", "0.16.9") {
+		t.Fatal("version comparison returned an unexpected result")
+	}
+}

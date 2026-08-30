@@ -118,6 +118,19 @@ if (Test-Path -LiteralPath $script:ShrinkConfigPath) {
     }
 }
 
+$script:ShrinkInstallDir = if ($env:SHRINKER_INSTALL_DIR) { $env:SHRINKER_INSTALL_DIR } else { Join-Path $HOME ".shrinker" }
+$script:ShrinkUpdateNotice = Join-Path $script:ShrinkInstallDir "update-notice"
+if (Test-Path -LiteralPath $script:ShrinkUpdateNotice) {
+    Get-Content -LiteralPath $script:ShrinkUpdateNotice
+    Remove-Item -LiteralPath $script:ShrinkUpdateNotice -Force -ErrorAction SilentlyContinue
+}
+if ($env:SHRINKER_DISABLE_UPDATE_CHECK -ne "1") {
+    $shrinkCommand = Get-ShrinkCommandPath
+    if ($shrinkCommand) {
+        Start-Process -FilePath $shrinkCommand -ArgumentList "update-check" -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+    }
+}
+
 function Test-ShrinkTrackingEnabled {
     $value = [string]$env:SHRINKER_TRACK_UNCOVERED
     if (-not $value) { $value = $script:ShrinkTrackUncoveredDefault }

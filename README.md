@@ -55,6 +55,8 @@ Network allowlists need access to `raw.githubusercontent.com` for the installer 
 
 After installation, Shrinker starts its local dashboard server at `http://127.0.0.1:4317` in the background.
 
+When a configured shell starts, Shrinker checks GitHub Releases in the background at most once per day. A newer version is shown once on a later shell startup. Set `SHRINKER_DISABLE_UPDATE_CHECK=1` to disable this check.
+
 ### Local checkout
 
 Install from a checkout:

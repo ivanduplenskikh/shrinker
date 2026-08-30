@@ -32,6 +32,15 @@ _shrink_load_config() {
 }
 _shrink_load_config
 
+typeset shrink_update_notice="${SHRINKER_INSTALL_DIR:-$HOME/.shrinker}/update-notice"
+if [[ -r "$shrink_update_notice" ]]; then
+  cat "$shrink_update_notice"
+  rm -f "$shrink_update_notice"
+fi
+if [[ "${SHRINKER_DISABLE_UPDATE_CHECK:-}" != "1" ]] && command -v shrinker >/dev/null 2>&1; then
+  (command shrinker update-check >/dev/null 2>&1 &)
+fi
+
 _shrink_uncovered_enabled() {
   local value="${SHRINKER_TRACK_UNCOVERED:-$SHRINK_TRACK_UNCOVERED_DEFAULT}"
   case "${value:l}" in
