@@ -129,7 +129,7 @@ shrinker help
 
 ## Automatic PowerShell routing
 
-The optional profile integration routes allowlisted commands through `shrinker` and invokes the native executable for everything else. Enable it during installation with `-EnableProfileRouting` on Windows or `--enable-profile-routing` on macOS/Linux.
+The installer asks whether to enable profile integration, which routes allowlisted commands through `shrinker` and invokes the native executable for everything else. The default answer is yes. Use `-EnableProfileRouting` on Windows or `--enable-profile-routing` on macOS/Linux to enable it without a prompt; use `-SkipProfile` or `--skip-profile` to leave shell profiles unchanged.
 
 ```powershell
 if (!(Test-Path $PROFILE)) {

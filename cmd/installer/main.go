@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"archive/zip"
+	"bufio"
 	"compress/gzip"
 	"flag"
 	"fmt"
@@ -53,6 +54,21 @@ func install(args []string) {
 	skipRules := flags.Bool("skip-agent-rules", false, "skip agent rules")
 	track := flags.Bool("track-uncovered", true, "enable uncovered command tracking")
 	_ = flags.Parse(args)
+	var enableProfileSet, skipProfileSet bool
+	flags.Visit(func(flag *flag.Flag) {
+		switch flag.Name {
+		case "enable-profile-routing":
+			enableProfileSet = true
+		case "skip-profile":
+			skipProfileSet = *skipProfile
+		}
+	})
+	if *enableProfile && *skipProfile {
+		fail("use either --enable-profile-routing or --skip-profile, not both")
+	}
+	if !enableProfileSet && !skipProfileSet {
+		*enableProfile = confirmProfileRouting()
+	}
 	root, err := os.Getwd()
 	if err != nil {
 		fail(err.Error())
@@ -132,6 +148,24 @@ func install(args []string) {
 		}
 	}
 	fmt.Printf("Installed shrinker at %s\n", binary)
+}
+
+func confirmProfileRouting() bool {
+	info, err := os.Stdin.Stat()
+	if err != nil || info.Mode()&os.ModeCharDevice == 0 {
+		return true
+	}
+	fmt.Print("Enable automatic shell command routing? [Y/n] ")
+	answer, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(answer)) {
+	case "n", "no":
+		return false
+	default:
+		return true
+	}
 }
 
 func uninstall(args []string) {
