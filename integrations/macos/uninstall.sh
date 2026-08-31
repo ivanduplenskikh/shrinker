@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INSTALL_DIR="${SHRINKER_INSTALL_DIR:-$HOME/.shrinker}"
 REMOVE_INSTALL_DIR=0
 SKIP_UNLINK=0
 SKIP_AGENT_RULES=0
@@ -25,7 +24,6 @@ while [[ $# -gt 0 ]]; do
     --skip-agent-rules) SKIP_AGENT_RULES=1 ;;
     --copilot-only) COPILOT_ONLY=1 ;;
     --claude-only) CLAUDE_ONLY=1 ;;
-    --install-dir) INSTALL_DIR="${2:-}"; shift ;;
     --remove-install-dir) REMOVE_INSTALL_DIR=1 ;;
     --purge-data) PURGE_DATA=1 ;;
     --port) DASHBOARD_PORT="${2:-}"; shift ;;
@@ -60,7 +58,7 @@ remove_path_integration() {
 }
 
 remove_release_install() {
-  rm -rf "$INSTALL_DIR/bin" "$INSTALL_DIR/integrations" "$INSTALL_DIR/templates" "$INSTALL_DIR/manifest.json"
+  rm -rf "$HOME/.shrinker/bin" "$HOME/.shrinker/integrations" "$HOME/.shrinker/templates" "$HOME/.shrinker/manifest.json"
 }
 
 # The dashboard runs as a detached daemon, so removing the binary never stops it.
@@ -111,7 +109,7 @@ fi
 
 print_step "✅" "Uninstall complete."
 
-if (( REMOVE_INSTALL_DIR == 1 )) && [[ -d "$INSTALL_DIR" ]]; then
-  rm -rf "$INSTALL_DIR"
-  print_step "🧹" "Removed install directory: $INSTALL_DIR"
+if (( REMOVE_INSTALL_DIR == 1 )) && [[ -d "$HOME/.shrinker" ]]; then
+  rm -rf "$HOME/.shrinker"
+  print_step "🧹" "Removed install directory: $HOME/.shrinker"
 fi

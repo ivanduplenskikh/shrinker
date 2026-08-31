@@ -5,7 +5,6 @@ LOCAL=0
 VERSION=""
 RELEASE_REPO="ivanduplenskikh/shrinker"
 ASSET_BASE_URL=""
-INSTALL_DIR="${SHRINKER_INSTALL_DIR:-$HOME/.shrinker}"
 SKIP_AGENT_RULES=0
 COPILOT_ONLY=0
 CLAUDE_ONLY=0
@@ -16,7 +15,6 @@ while [[ $# -gt 0 ]]; do
     --version) VERSION="${2:-}"; shift ;;
     --release-repo) RELEASE_REPO="${2:-}"; shift ;;
     --asset-base-url) ASSET_BASE_URL="${2:-}"; shift ;;
-    --install-dir) INSTALL_DIR="${2:-}"; shift ;;
     --skip-agent-rules) SKIP_AGENT_RULES=1 ;;
     --copilot-only) COPILOT_ONLY=1 ;;
     --claude-only) CLAUDE_ONLY=1 ;;
@@ -33,7 +31,6 @@ arguments=(install)
 (( COPILOT_ONLY )) && arguments+=(--copilot-only)
 (( CLAUDE_ONLY )) && arguments+=(--claude-only)
 [[ -n "$VERSION" ]] && arguments+=(--version "$VERSION")
-arguments+=(--install-dir "$INSTALL_DIR")
 
 if (( LOCAL )); then
   cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

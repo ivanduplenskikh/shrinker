@@ -5,7 +5,6 @@ param(
     [switch]$ClaudeOnly,
     [switch]$PurgeData,
     [int]$Port = 4317,
-    [string]$InstallDir = $(Join-Path $HOME ".shrinker"),
     [string]$ConfigPath = $(if ($env:SHRINKER_CONFIG_PATH) { $env:SHRINKER_CONFIG_PATH } else { Join-Path $HOME ".shrinker/config" })
 )
 
@@ -74,9 +73,9 @@ function Remove-UserPathEntry {
 
 function Remove-ReleaseInstall {
     foreach ($name in @("bin", "integrations", "templates", "manifest.json")) {
-        Remove-Item -LiteralPath (Join-Path $InstallDir $name) -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath (Join-Path $HOME ".shrinker\$name") -Recurse -Force -ErrorAction SilentlyContinue
     }
-    Remove-UserPathEntry (Join-Path $InstallDir "bin")
+    Remove-UserPathEntry (Join-Path $HOME ".shrinker\bin")
 }
 
 # The dashboard runs as a detached daemon, so unlinking the package never stops it.

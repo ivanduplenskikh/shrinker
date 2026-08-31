@@ -48,14 +48,14 @@ func install(args []string) {
 	releaseRepo := flags.String("release-repo", "ivanduplenskikh/shrinker", "GitHub repository")
 	assetBaseURL := flags.String("asset-base-url", "", "release asset base URL")
 	archivePath := flags.String("archive", "", "use a downloaded release archive")
-	installDir := flags.String("install-dir", defaultInstallDir(), "installation directory")
 	skipRules := flags.Bool("skip-agent-rules", false, "skip agent rules")
 	_ = flags.Parse(args)
 	root, err := os.Getwd()
 	if err != nil {
 		fail(err.Error())
 	}
-	binDir := filepath.Join(*installDir, "bin")
+	installDir := defaultInstallDir()
+	binDir := filepath.Join(installDir, "bin")
 	installedVersion := "local build"
 	if err := os.MkdirAll(binDir, 0o700); err != nil {
 		fail(err.Error())
@@ -88,13 +88,13 @@ func install(args []string) {
 		for _, relative := range []string{"integrations", "templates", "manifest.json"} {
 			source := filepath.Join(staging, relative)
 			if fileExists(source) {
-				if err := copyTree(source, filepath.Join(*installDir, relative)); err != nil {
+				if err := copyTree(source, filepath.Join(installDir, relative)); err != nil {
 					fail(err.Error())
 				}
 			}
 		}
-		root = *installDir
-		if version, err := installedManifestVersion(filepath.Join(*installDir, "manifest.json")); err == nil {
+		root = installDir
+		if version, err := installedManifestVersion(filepath.Join(installDir, "manifest.json")); err == nil {
 			installedVersion = version
 		}
 	}
@@ -169,9 +169,8 @@ func installedManifestVersion(path string) (string, error) {
 
 func uninstall(args []string) {
 	flags := flag.NewFlagSet("uninstall", flag.ExitOnError)
-	installDir := flags.String("install-dir", defaultInstallDir(), "installation directory")
 	flags.Parse(args)
-	binDir := filepath.Join(*installDir, "bin")
+	binDir := filepath.Join(defaultInstallDir(), "bin")
 	for _, profilePath := range profilePaths() {
 		if err := removeBlock(profilePath, pathBlockStart(), pathBlockEnd()); err != nil {
 			fail(err.Error())
@@ -569,6 +568,6 @@ func addUserPath(directory string) error {
 
 func quotePowerShell(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
 func usage() {
-	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive --install-dir --skip-agent-rules")
+	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive --skip-agent-rules")
 }
 func fail(message string) { fmt.Fprintln(os.Stderr, message); os.Exit(1) }

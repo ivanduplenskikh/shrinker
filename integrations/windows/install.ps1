@@ -3,7 +3,6 @@ param(
     [string]$Version,
     [string]$ReleaseRepo = "ivanduplenskikh/shrinker",
     [string]$AssetBaseUrl,
-    [string]$InstallDir = (Join-Path $HOME ".shrinker"),
     [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
     [switch]$ClaudeOnly
@@ -18,10 +17,9 @@ if ($SkipAgentRules) { $arguments += "--skip-agent-rules" }
 if ($CopilotOnly) { $arguments += "--copilot-only" }
 if ($ClaudeOnly) { $arguments += "--claude-only" }
 if ($Version) { $arguments += @("--version", $Version) }
-$arguments += @("--install-dir", $InstallDir)
 
 function Enable-ShrinkerInCurrentSession {
-    $binDir = Join-Path $InstallDir "bin"
+    $binDir = Join-Path $HOME ".shrinker\bin"
     if ((Test-Path -LiteralPath $binDir) -and -not (($env:Path -split [IO.Path]::PathSeparator) -contains $binDir)) {
         $env:Path = "$binDir$([IO.Path]::PathSeparator)$env:Path"
     }
