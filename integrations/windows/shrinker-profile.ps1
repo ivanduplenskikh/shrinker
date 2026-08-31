@@ -28,7 +28,7 @@ foreach ($name in @("git", "npm", "docker", "kubectl", "gh", "rg", "find", "tail
     }
 }
 
-function Get-ShrinkSubcommand {
+function global:Get-ShrinkSubcommand {
     param(
         [string]$CommandName,
         [object[]]$Arguments
@@ -49,7 +49,7 @@ function Get-ShrinkSubcommand {
     return ""
 }
 
-function Use-ShrinkRouting {
+function global:Use-ShrinkRouting {
     param(
         [string]$CommandName,
         [object[]]$Arguments
@@ -67,13 +67,13 @@ function Use-ShrinkRouting {
     return $allowlist -contains $subcommand
 }
 
-function Test-ShrinkRecordsSubcommand {
+function global:Test-ShrinkRecordsSubcommand {
     param([string]$CommandName)
 
     return @("git", "npm", "docker", "kubectl", "gh") -contains $CommandName
 }
 
-function Get-ShrinkCommandPath {
+function global:Get-ShrinkCommandPath {
     $installed = Join-Path $HOME ".shrinker\bin\shrinker.exe"
     if (Test-Path -LiteralPath $installed) {
         return $installed
@@ -131,14 +131,14 @@ if ($env:SHRINKER_DISABLE_UPDATE_CHECK -ne "1") {
     }
 }
 
-function Test-ShrinkTrackingEnabled {
+function global:Test-ShrinkTrackingEnabled {
     $value = [string]$env:SHRINKER_TRACK_UNCOVERED
     if (-not $value) { $value = $script:ShrinkTrackUncoveredDefault }
     if (-not $value) { return $false }
     return @("1", "true", "yes") -contains $value.Trim().ToLowerInvariant()
 }
 
-function Write-ShrinkUncovered {
+function global:Write-ShrinkUncovered {
     param(
         [string]$CommandName,
         [object[]]$Arguments,
@@ -161,7 +161,7 @@ function Write-ShrinkUncovered {
     } catch {}
 }
 
-function Invoke-ShrinkNativeTracked {
+function global:Invoke-ShrinkNativeTracked {
     param(
         [scriptblock]$Invoke,
         [string]$CommandName,
@@ -189,7 +189,7 @@ function Invoke-ShrinkNativeTracked {
     Write-ShrinkUncovered -CommandName $CommandName -Arguments $Arguments -Bytes $bytes -ExitCode $exitCode
 }
 
-function Invoke-ShrinkOrNative {
+function global:Invoke-ShrinkOrNative {
     param(
         [string]$CommandName,
         [object[]]$Arguments
