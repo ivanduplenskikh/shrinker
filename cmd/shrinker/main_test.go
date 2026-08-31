@@ -63,6 +63,56 @@ func TestRenderPreservesCapturedCommandOutput(t *testing.T) {
 	}
 }
 
+func TestRenderFiltersCapturedCommandOutput(t *testing.T) {
+	originalStdout := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = writer
+	t.Cleanup(func() {
+		os.Stdout = originalStdout
+		reader.Close()
+		writer.Close()
+	})
+
+	input := strings.Repeat("progress 50%\n", 200)
+	omitted, _ := render(input, false, false, "log", 120, 40, 0, []string{"docker", "logs", "api"})
+	writer.Close()
+	output, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !omitted || len(output) >= len(input) {
+		t.Fatalf("captured output was not filtered: %d bytes, omitted = %t", len(output), omitted)
+	}
+}
+
+func TestRenderRawPreservesCapturedCommandOutput(t *testing.T) {
+	originalStdout := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = writer
+	t.Cleanup(func() {
+		os.Stdout = originalStdout
+		reader.Close()
+		writer.Close()
+	})
+
+	input := strings.Repeat("progress 50%\n", 200)
+	omitted, _ := render(input, true, false, "log", 120, 40, 0, []string{"docker", "logs", "api"})
+	writer.Close()
+	output, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if omitted || string(output) != input {
+		t.Fatalf("raw output = %d bytes, omitted = %t", len(output), omitted)
+	}
+}
+
 func TestVersionLessThan(t *testing.T) {
 	if !versionLessThan("0.15.0", "0.16.0") || !versionLessThan("0.15", "0.15.1") || versionLessThan("0.16.0", "0.16.0") || versionLessThan("0.17.0", "0.16.9") {
 		t.Fatal("version comparison returned an unexpected result")

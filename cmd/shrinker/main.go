@@ -296,7 +296,7 @@ func renderPipe(raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines
 func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines int, durationMs int64, command []string) (bool, metrics.Measurements) {
 	output := input
 	omitted := false
-	if !raw && (len(command) == 0 || stdoutIsTerminal()) {
+	if !raw {
 		result := filters.Apply(input, kind, filters.Options{MaxLines: maxLines, PerFileLines: perFileLines, Command: command})
 		omitted = result.Omitted
 		comparison := metrics.Measure(input, result.Output)
@@ -310,11 +310,6 @@ func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines, pe
 	}
 	fmt.Fprint(os.Stdout, output)
 	return omitted && output != input, measurements
-}
-
-func stdoutIsTerminal() bool {
-	info, err := os.Stdout.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 func withDefaultGitLogLimit(command []string) []string {
