@@ -291,6 +291,7 @@ optionsDone:
 		fail("shrinker: exec requires a command")
 	}
 	args = withDefaultGitLogLimit(args)
+	args = withNpmColor(args)
 
 	result, err := execution.RunCommand(args[0], args[1:])
 	if err != nil {
@@ -378,6 +379,19 @@ func withDefaultGitLogLimit(command []string) []string {
 	}
 	limited := append([]string{}, command...)
 	return append(limited, "-n", "10")
+}
+
+func withNpmColor(command []string) []string {
+	if filters.Detect(command) != "npm" {
+		return command
+	}
+	for _, argument := range command[1:] {
+		if argument == "--color" || strings.HasPrefix(argument, "--color=") || argument == "--no-color" {
+			return command
+		}
+	}
+	colored := append([]string{}, command...)
+	return append(colored, "--color=always")
 }
 
 const updateCheckInterval = 24 * time.Hour

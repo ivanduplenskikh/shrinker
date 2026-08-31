@@ -54,13 +54,16 @@ func TestGitLogPreservesUsefulCommitContext(t *testing.T) {
 }
 
 func TestNpmPreservesVulnerabilityAuditSummary(t *testing.T) {
-	raw := "npm install\nadded 515 packages, and audited 516 packages in 20s\n141 packages are looking for funding\n7 vulnerabilities (2 moderate, 5 high)\n"
+	raw := "npm install\n\x1b[32madded 515 packages, and audited 516 packages in 20s\x1b[0m\n141 packages are looking for funding\n\x1b[31m7 vulnerabilities (2 moderate, 5 high)\x1b[0m\n"
 	result := Apply(raw, "npm", Options{MaxLines: 20, Command: []string{"npm", "install"}})
 
 	for _, expected := range []string{"added 515 packages, and audited 516 packages in 20s", "7 vulnerabilities (2 moderate, 5 high)"} {
 		if !strings.Contains(result.Output, expected) {
 			t.Errorf("npm output missing %q:\n%s", expected, result.Output)
 		}
+	}
+	if !strings.Contains(result.Output, "\x1b[31m7 vulnerabilities") {
+		t.Errorf("npm output lost ANSI color:\n%q", result.Output)
 	}
 }
 

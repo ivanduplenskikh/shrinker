@@ -39,9 +39,15 @@ func compactTable(input string, options Options, kind Kind) Result {
 func applyNpm(input string, options Options) Result {
 	noise := 0
 	kept := []string{}
-	for _, line := range nonEmptyLines(input) {
-		lower := strings.ToLower(line)
-		if importantOutput.MatchString(line) || npmImportantPattern.MatchString(line) {
+	lines := strings.Split(strings.ReplaceAll(strings.ReplaceAll(input, "\r\n", "\n"), "\r", "\n"), "\n")
+	for _, line := range lines {
+		line = strings.TrimRight(line, " \t")
+		cleanLine := formatting.CleanText(line)
+		if cleanLine == "" {
+			continue
+		}
+		lower := strings.ToLower(cleanLine)
+		if importantOutput.MatchString(cleanLine) || npmImportantPattern.MatchString(cleanLine) {
 			kept = append(kept, line)
 			continue
 		}
