@@ -105,12 +105,12 @@ shrinker npm test
 
 ```text
 shrinker <command> [args...]
-shrinker exec [options] [--] <command> [args...]
+shrinker exec [--raw] [--metrics] [--no-save] [--no-stats] [--kind <kind>] [--max-lines <number>] [--per-file-lines <number>] [--] <command> [args...]
+shrinker update-check
 shrinker pipe [options]
-shrinker stats [--json]
+shrinker stats [--json] [--chart] [--coverage] [--dashboard [--dashboard-server] [--port <number>]]
 shrinker last [--path]
 shrinker raw <capture-id> [--path]
-shrinker track --executable <name> [--subcommand <name>] [--bytes <number>] [--exit-code <number>]
 shrinker help
 
 --kind <auto|git-status|git-diff|git-log|test|log>
@@ -123,7 +123,7 @@ shrinker help
 --coverage                 list commands shrinker does not cover yet
 ```
 
-`help`, `stats`, `last`, `raw`, `track`, `pipe`, and `exec` are reserved shrinker commands. Every other top-level token starts a wrapped command, so `shrinker git log` is equivalent to `shrinker exec git log`. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified. Shrinker does not override native shell commands: invoke it explicitly for output you want filtered. Install and uninstall remove any legacy managed shell-routing block while preserving other profile content.
+`help`, `stats`, `last`, `raw`, `pipe`, and `exec` are reserved shrinker commands. Every other top-level token starts a wrapped command, so `shrinker git log` is equivalent to `shrinker exec git log`. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified. Shrinker does not override native shell commands: invoke it explicitly for output you want filtered. Install and uninstall remove any legacy managed shell-routing block while preserving other profile content.
 
 ## Savings statistics
 
@@ -135,16 +135,14 @@ shrinker stats --json
 shrinker stats --chart
 shrinker stats --dashboard
 shrinker stats --dashboard --port 4318
-shrinker stats --dashboard --restart
+shrinker stats --dashboard --dashboard-server
 ```
 
-The summary shows all-time and last-seven-day savings plus a breakdown by filter. Use `--no-stats` before `--` to opt out for an individual run:
+The summary shows all-time and last-seven-day savings plus a breakdown by filter. Use `--no-stats` before `--` to opt out for an individual run.
 
-`stats --coverage` lists commands shrinker does not cover yet; see [Coverage gaps](#coverage-gaps).
+`stats --coverage` lists commands shrinker does not cover yet.
 `stats --chart` shows daily runs, estimated tokens saved, reduction percentage, and an activity bar for the last 30 days.
-`stats --dashboard` starts the local dashboard server in the background at `http://127.0.0.1:4317` and opens it in your browser, then returns to the terminal. The page reads the latest local stats whenever it is refreshed; use `--port` to choose another port. The same command also refreshes the standalone copy at `~/.shrinker/dashboard.html`, which can be opened directly without a server running.
-
-Use `stats --dashboard --restart` after rebuilding to replace an already-running dashboard server with the current code.
+`stats --dashboard` writes a standalone dashboard to `~/.shrinker/dashboard.html`. Add `--dashboard-server` to serve it at `http://127.0.0.1:4317`; use `--port` to choose another port.
 
 The dashboard estimates input API cost saved from the recorded token savings. Set the input price directly in the dashboard; it is retained in that browser. It defaults to `$5.00` per million input tokens, or `SHRINKER_INPUT_COST_PER_MILLION_TOKENS` when set before starting the dashboard:
 

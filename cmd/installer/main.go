@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -39,8 +38,9 @@ func main() {
 }
 
 func install(args []string) {
-	flags := flag.NewFlagSet("install", flag.ExitOnError)
-	_ = flags.Parse(args)
+	if len(args) != 0 {
+		fail("install does not accept arguments")
+	}
 	root, bundled := installSourceRoot()
 	if root == "" {
 		fail("installer must run from a Shrinker release bundle or source checkout")
@@ -139,8 +139,9 @@ func installedManifestVersion(path string) (string, error) {
 }
 
 func uninstall(args []string) {
-	flags := flag.NewFlagSet("uninstall", flag.ExitOnError)
-	flags.Parse(args)
+	if len(args) != 0 {
+		fail("uninstall does not accept arguments")
+	}
 	binDir := filepath.Join(defaultInstallDir(), "bin")
 	for _, profilePath := range profilePaths() {
 		if err := removeBlock(profilePath, pathBlockStart(), pathBlockEnd()); err != nil {
@@ -228,6 +229,7 @@ func removeBlock(path, start, end string) error {
 		return err
 	}
 	text := string(contents)
+	changed := false
 	for {
 		i := strings.Index(text, start)
 		if i < 0 {
@@ -238,8 +240,12 @@ func removeBlock(path, start, end string) error {
 			break
 		}
 		text = text[:i] + text[i+j+len(end):]
+		changed = true
 	}
-	return os.WriteFile(path, []byte(strings.TrimLeft(text, "\n")), 0o600)
+	if !changed {
+		return nil
+	}
+	return os.WriteFile(path, []byte(text), 0o600)
 }
 func removeLegacyProfileIntegrations(paths []string) error {
 	for _, path := range paths {

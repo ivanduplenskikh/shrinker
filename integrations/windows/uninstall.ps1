@@ -36,11 +36,14 @@ function Remove-ProfileBlock {
     if (-not (Test-Path $ProfileFile)) { return }
     $content = Get-Content $ProfileFile -Raw
     if ($null -eq $content) { return }
-    $start = $content.IndexOf($StartMarker)
-    if ($start -ge 0) {
+    while ($true) {
+        $start = $content.IndexOf($StartMarker)
+        if ($start -lt 0) { break }
         $end = $content.IndexOf($EndMarker, $start)
-        if ($end -ge 0) { Set-Content $ProfileFile $content.Remove($start, $end + $EndMarker.Length - $start) }
+        if ($end -lt 0) { break }
+        $content = $content.Remove($start, $end + $EndMarker.Length - $start)
     }
+    Set-Content $ProfileFile $content
 }
 
 function Get-LegacyProfilePaths {

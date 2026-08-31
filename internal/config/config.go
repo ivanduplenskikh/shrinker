@@ -75,11 +75,3 @@ func Set(key, value, path string) error {
 	return os.WriteFile(path, []byte(strings.Join(next, "\n")+"\n"), 0o600)
 }
 
-func IsTruthy(value string) bool {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "1", "true", "yes":
-		return true
-	default:
-		return false
-	}
-}

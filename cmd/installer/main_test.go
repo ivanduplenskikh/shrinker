@@ -24,7 +24,7 @@ func TestRemoveBlockRemovesLegacyProfileIntegration(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "profile.ps1")
 	secondPath := filepath.Join(directory, "bashrc")
-	contents := "before\n" + blockStart + "\n. shrinker-profile.ps1\n" + blockEnd + "\n" + pathBlockStart() + "\nPATH\n" + pathBlockEnd() + "\nafter\n"
+	contents := "\n\nbefore\n" + blockStart + "\n. shrinker-profile.ps1\n" + blockEnd + "\nmiddle\n" + blockStart + "\n. shrinker-profile.ps1\n" + blockEnd + "\n" + pathBlockStart() + "\nPATH\n" + pathBlockEnd() + "\nafter\n"
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -45,6 +45,9 @@ func TestRemoveBlockRemovesLegacyProfileIntegration(t *testing.T) {
 		}
 		if !strings.Contains(text, pathBlockStart()) || !strings.Contains(text, "before") || !strings.Contains(text, "after") {
 			t.Fatalf("unexpected profile contents: %q", text)
+		}
+		if !strings.HasPrefix(text, "\n\n") || !strings.Contains(text, "middle") {
+			t.Fatalf("profile formatting was not preserved: %q", text)
 		}
 	}
 	if err := removeLegacyProfileIntegrations([]string{path, secondPath}); err != nil {

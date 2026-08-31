@@ -39,7 +39,6 @@ type StatsSummary struct {
 	Total                    StatsRow          `json:"total"`
 	Last7Days                StatsRow          `json:"last7Days"`
 	ByFilter                 []StatsRow        `json:"byFilter"`
-	UncoveredTrackingEnabled bool              `json:"uncoveredTrackingEnabled"`
 	Uncovered                []UncoveredRow    `json:"uncovered"`
 	Daily                    []DailyStatsRow   `json:"daily"`
 	YearlyDaily              []DailyStatsRow   `json:"yearlyDaily"`
@@ -203,7 +202,7 @@ func GetStats(databasePath string) (StatsSummary, error) {
 		return StatsSummary{}, err
 	}
 	defer database.Close()
-	result := StatsSummary{DatabasePath: databasePath, ByFilter: []StatsRow{}, UncoveredTrackingEnabled: true}
+	result := StatsSummary{DatabasePath: databasePath, ByFilter: []StatsRow{}}
 	result.Uncovered, err = GetCoverageStats(databasePath)
 	if err != nil {
 		return result, err
@@ -355,11 +354,7 @@ func FormatStatsJSON(summary StatsSummary) (string, error) {
 }
 
 func FormatCoverage(summary StatsSummary) string {
-	state := "disabled"
-	if summary.UncoveredTrackingEnabled {
-		state = "enabled"
-	}
-	return fmt.Sprintf("Shrinker Coverage Gaps\n\nTracking: %s\nUncovered commands: %d\n\nDatabase: %s", state, len(summary.Uncovered), summary.DatabasePath)
+	return fmt.Sprintf("Shrinker Coverage Gaps\n\nUncovered commands: %d\n\nDatabase: %s", len(summary.Uncovered), summary.DatabasePath)
 }
 
 func FormatStatsChart(summary StatsSummary) string {

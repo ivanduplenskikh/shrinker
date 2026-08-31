@@ -14,7 +14,6 @@ type UncoveredReason string
 const (
 	ReasonNoFilter           UncoveredReason = "no-filter"
 	ReasonLowReduction       UncoveredReason = "low-reduction"
-	ReasonUnlistedSubcommand UncoveredReason = "unlisted-subcommand"
 )
 
 type CommandSignature struct {

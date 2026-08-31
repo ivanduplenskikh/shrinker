@@ -91,6 +91,8 @@ fi
 print_step "🔧" "Removing legacy shell profile integration..."
 remove_profile_integration "$HOME/.zshrc"
 remove_path_integration "$HOME/.zshrc"
+remove_profile_integration "$HOME/.bashrc"
+remove_path_integration "$HOME/.bashrc"
 if (( SKIP_AGENT_RULES == 0 )); then
   (( CLAUDE_ONLY )) || remove_agent_rules "$HOME/.copilot/copilot-instructions.md"
   (( COPILOT_ONLY )) || remove_agent_rules "$HOME/.claude/CLAUDE.md"

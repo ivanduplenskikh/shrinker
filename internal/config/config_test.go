@@ -34,15 +34,3 @@ func TestResolveSettingEnvironmentWins(t *testing.T) {
 	}
 }
 
-func TestIsTruthy(t *testing.T) {
-	for _, value := range []string{"1", "true", "TRUE", "yes", " Yes "} {
-		if !IsTruthy(value) {
-			t.Errorf("IsTruthy(%q) = false", value)
-		}
-	}
-	for _, value := range []string{"0", "false", "no", " "} {
-		if IsTruthy(value) {
-			t.Errorf("IsTruthy(%q) = true", value)
-		}
-	}
-}

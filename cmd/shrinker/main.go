@@ -23,7 +23,6 @@ const usage = `Usage:
   shrinker update-check
   shrinker pipe [--kind log] [--max-lines <number>]
   shrinker stats [--json] [--chart] --dashboard [--dashboard-server] [--port <number>]
-  shrinker track --executable <name> [--subcommand <name>] [--bytes <number>] [--exit-code <number>]
   shrinker last
   shrinker raw <capture-id>
   shrinker help
@@ -44,7 +43,7 @@ func main() {
 	}
 
 	mode := "exec"
-	if args[0] == "last" || args[0] == "raw" || args[0] == "track" {
+	if args[0] == "last" || args[0] == "raw" {
 		mode = args[0]
 		args = args[1:]
 	} else if args[0] == "stats" {
@@ -66,10 +65,6 @@ func main() {
 	noStats := false
 	noSave := false
 	coverage := false
-	dashboardRestart := false
-	trackExecutable, trackSubcommand := "", ""
-	trackBytes, trackExitCode := 0, 0
-	hasTrackBytes, hasTrackExitCode := false, false
 	kind := filters.KindAuto
 	maxLines := 120
 	perFileLines := 40
@@ -98,12 +93,6 @@ func main() {
 				fail("--dashboard-server is only supported by stats")
 			}
 			dashboardServer = true
-			args = args[1:]
-		case "--restart":
-			if mode != "stats" {
-				fail("--restart is only supported by stats")
-			}
-			dashboardRestart = true
 			args = args[1:]
 		case "--port":
 			if mode != "stats" || len(args) < 2 {
@@ -135,34 +124,6 @@ func main() {
 			}
 			coverage = true
 			args = args[1:]
-		case "--executable":
-			if mode != "track" || len(args) < 2 {
-				fail("--executable requires a value")
-			}
-			trackExecutable, args = args[1], args[2:]
-		case "--subcommand":
-			if mode != "track" || len(args) < 2 {
-				fail("--subcommand requires a value")
-			}
-			trackSubcommand, args = args[1], args[2:]
-		case "--bytes":
-			if mode != "track" || len(args) < 2 {
-				fail("--bytes requires a value")
-			}
-			parsed, err := strconv.Atoi(args[1])
-			if err != nil || parsed < 0 {
-				fail("--bytes requires a non-negative integer")
-			}
-			trackBytes, hasTrackBytes, args = parsed, true, args[2:]
-		case "--exit-code":
-			if mode != "track" || len(args) < 2 {
-				fail("--exit-code requires a value")
-			}
-			parsed, err := strconv.Atoi(args[1])
-			if err != nil {
-				fail("--exit-code requires an integer")
-			}
-			trackExitCode, hasTrackExitCode, args = parsed, true, args[2:]
 		case "--metrics":
 			showMetrics = true
 			args = args[1:]
@@ -200,23 +161,6 @@ func main() {
 		}
 	}
 optionsDone:
-	if mode == "track" {
-		if trackExecutable == "" || len(args) != 0 {
-			fail("track requires --executable")
-		}
-		var exitCode *int
-		if hasTrackExitCode {
-			exitCode = &trackExitCode
-		}
-		rawTokens := 0
-		if hasTrackBytes {
-			rawTokens = (trackBytes + 3) / 4
-		}
-		if err := metrics.RecordUncovered(metrics.UncoveredStatistic{Source: "shell", Reason: metrics.ReasonUnlistedSubcommand, Executable: trackExecutable, Subcommand: trackSubcommand, RawBytes: trackBytes, RawEstimatedTokens: rawTokens, ExitCode: exitCode}, metrics.DefaultStatsPath()); err != nil {
-			fail(err.Error())
-		}
-		return
-	}
 	if mode == "last" || mode == "raw" {
 		if len(args) > 1 || (mode == "raw" && len(args) == 0) || (mode == "last" && len(args) != 0) {
 			fail(mode + " has invalid arguments")
@@ -239,9 +183,6 @@ optionsDone:
 		return
 	}
 	if mode == "stats" {
-		if dashboardRestart && !dashboardOutput {
-			fail("--restart requires --dashboard")
-		}
 		if len(args) != 0 {
 			fail("stats does not accept command arguments")
 		}
