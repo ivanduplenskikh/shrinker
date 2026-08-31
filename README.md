@@ -182,26 +182,6 @@ shrinker last --path
 
 For an unbounded `git log`, Shrinker adds `-n 10`, so agents receive a predictable ten-commit result and savings statistics compare that complete raw output with the compact output. Commands with an explicit `-n` or `--max-count` keep their requested limit.
 
-## Demo
-
-```powershell
-go run ./cmd/demo
-```
-
-Current representative fixtures:
-
-| Output | Estimated token reduction |
-|---|---:|
-| Git status | 62% |
-| Git diff | 26% |
-| Git log with commit bodies | 39% |
-| Git log with one short commit | 69%, but only 27 estimated tokens |
-| Test failure | 51% |
-| Noisy log | 39% |
-| **Average** | **48%** |
-
-The token estimate uses `ceil(characters / 4)`. It is suitable for relative before/after comparisons, not billing claims. Byte counts and absolute estimated tokens saved are also reported; gains below 50 tokens are labeled as small.
-
 ## Architecture
 
 ```text
