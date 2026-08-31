@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+	"os"
 	"strings"
 	"testing"
 )
@@ -34,6 +36,30 @@ func TestWithNpmColorPreservesUserColorPreference(t *testing.T) {
 	got := withNpmColor(command)
 	if strings.Join(got, "\x00") != strings.Join(command, "\x00") {
 		t.Fatalf("command = %q, want %q", got, command)
+	}
+}
+
+func TestRenderPreservesCapturedCommandOutput(t *testing.T) {
+	originalStdout := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = writer
+	t.Cleanup(func() {
+		os.Stdout = originalStdout
+		reader.Close()
+		writer.Close()
+	})
+
+	omitted, _ := render("branch\r\n", false, false, "git-list", 120, 40, 0, []string{"git", "branch", "--show-current"})
+	writer.Close()
+	output, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if omitted || string(output) != "branch\r\n" {
+		t.Fatalf("rendered output = %q, omitted = %t", output, omitted)
 	}
 }
 
