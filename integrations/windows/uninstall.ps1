@@ -6,7 +6,6 @@ param(
     [switch]$PurgeData,
     [int]$Port = 4317,
     [string]$InstallDir = $(Join-Path $HOME ".shrinker"),
-    [string]$ProfilePath = $PROFILE,
     [string]$ConfigPath = $(if ($env:SHRINKER_CONFIG_PATH) { $env:SHRINKER_CONFIG_PATH } else { Join-Path $HOME ".shrinker/config" })
 )
 
@@ -33,17 +32,32 @@ function Remove-AgentRules {
     }
 }
 
-function Remove-ProfileIntegration {
-    param([string]$ProfileFile)
+function Remove-ProfileBlock {
+    param([string]$ProfileFile, [string]$StartMarker, [string]$EndMarker)
     if (-not (Test-Path $ProfileFile)) { return }
     $content = Get-Content $ProfileFile -Raw
     if ($null -eq $content) { return }
-    $start = $content.IndexOf("# >>> shrinker integration >>>")
-    $endMarker = "# <<< shrinker integration <<<"
+    $start = $content.IndexOf($StartMarker)
     if ($start -ge 0) {
-        $end = $content.IndexOf($endMarker, $start)
-        if ($end -ge 0) { Set-Content $ProfileFile $content.Remove($start, $end + $endMarker.Length - $start) }
+        $end = $content.IndexOf($EndMarker, $start)
+        if ($end -ge 0) { Set-Content $ProfileFile $content.Remove($start, $end + $EndMarker.Length - $start) }
     }
+}
+
+function Get-LegacyProfilePaths {
+    $paths = @($PROFILE)
+    foreach ($shell in @("powershell", "pwsh")) {
+        try {
+            $profile = & $shell -NoProfile -Command '$PROFILE' 2>$null
+            if ($LASTEXITCODE -eq 0 -and $profile) { $paths += $profile.Trim() }
+        }
+        catch { }
+    }
+    $paths += @(
+        (Join-Path $HOME "Documents\PowerShell\Microsoft.PowerShell_profile.ps1"),
+        (Join-Path $HOME "Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1")
+    )
+    $paths | Where-Object { $_ } | Select-Object -Unique
 }
 
 function Remove-UserPathEntry {
@@ -90,7 +104,10 @@ if (-not $SkipUnlink) {
 }
 else { Write-UninstallStep "⏭️" "Skipped removal." }
 Write-UninstallStep "🔧" "Removing legacy PowerShell profile integration..."
-Remove-ProfileIntegration $ProfilePath
+foreach ($profilePath in Get-LegacyProfilePaths) {
+    Remove-ProfileBlock $profilePath "# >>> shrinker integration >>>" "# <<< shrinker integration <<<"
+    Remove-ProfileBlock $profilePath "# >>> shrinker path >>>" "# <<< shrinker path <<<"
+}
 if (-not $SkipAgentRules) {
     if (-not $ClaudeOnly) { Remove-AgentRules (Join-Path $HOME ".copilot\copilot-instructions.md") }
     if (-not $CopilotOnly) { Remove-AgentRules (Join-Path $HOME ".claude\CLAUDE.md") }

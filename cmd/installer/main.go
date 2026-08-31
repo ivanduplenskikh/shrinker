@@ -49,7 +49,6 @@ func install(args []string) {
 	assetBaseURL := flags.String("asset-base-url", "", "release asset base URL")
 	archivePath := flags.String("archive", "", "use a downloaded release archive")
 	installDir := flags.String("install-dir", defaultInstallDir(), "installation directory")
-	profile := flags.String("profile-path", defaultProfile(), "shell profile to update")
 	skipRules := flags.Bool("skip-agent-rules", false, "skip agent rules")
 	_ = flags.Parse(args)
 	root, err := os.Getwd()
@@ -110,14 +109,16 @@ func install(args []string) {
 			fail("Go build failed: " + err.Error())
 		}
 	}
-	if err := removeLegacyProfileIntegrations(profilePaths(*profile)); err != nil {
+	if err := removeLegacyProfileIntegrations(profilePaths()); err != nil {
 		fail(err.Error())
 	}
 	if err := addUserPath(binDir); err != nil {
 		fail(err.Error())
 	}
-	if err := addPath(*profile, binDir); err != nil {
-		fail(err.Error())
+	if runtime.GOOS != "windows" {
+		if err := addPath(defaultProfile(), binDir); err != nil {
+			fail(err.Error())
+		}
 	}
 	if !*skipRules {
 		body, err := os.ReadFile(filepath.Join(root, "templates", "agent-rules.md"))
@@ -169,10 +170,9 @@ func installedManifestVersion(path string) (string, error) {
 func uninstall(args []string) {
 	flags := flag.NewFlagSet("uninstall", flag.ExitOnError)
 	installDir := flags.String("install-dir", defaultInstallDir(), "installation directory")
-	profile := flags.String("profile-path", defaultProfile(), "shell profile to update")
 	flags.Parse(args)
 	binDir := filepath.Join(*installDir, "bin")
-	for _, profilePath := range profilePaths(*profile) {
+	for _, profilePath := range profilePaths() {
 		if err := removeBlock(profilePath, pathBlockStart(), pathBlockEnd()); err != nil {
 			fail(err.Error())
 		}
@@ -493,8 +493,8 @@ func defaultProfile() string {
 	}
 	return filepath.Join(home, ".zshrc")
 }
-func profilePaths(profile string) []string {
-	paths := []string{profile, bashProfilePath()}
+func profilePaths() []string {
+	paths := []string{defaultProfile(), bashProfilePath()}
 	if runtime.GOOS == "windows" {
 		home, _ := os.UserHomeDir()
 		paths = append(paths,
@@ -569,6 +569,6 @@ func addUserPath(directory string) error {
 
 func quotePowerShell(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
 func usage() {
-	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive --install-dir --profile-path --skip-agent-rules")
+	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive --install-dir --skip-agent-rules")
 }
 func fail(message string) { fmt.Fprintln(os.Stderr, message); os.Exit(1) }

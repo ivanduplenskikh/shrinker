@@ -6,8 +6,7 @@ param(
     [string]$InstallDir = (Join-Path $HOME ".shrinker"),
     [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
-    [switch]$ClaudeOnly,
-    [string]$ProfilePath = $PROFILE
+    [switch]$ClaudeOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,7 +18,7 @@ if ($SkipAgentRules) { $arguments += "--skip-agent-rules" }
 if ($CopilotOnly) { $arguments += "--copilot-only" }
 if ($ClaudeOnly) { $arguments += "--claude-only" }
 if ($Version) { $arguments += @("--version", $Version) }
-$arguments += @("--install-dir", $InstallDir, "--profile-path", $ProfilePath)
+$arguments += @("--install-dir", $InstallDir)
 
 function Enable-ShrinkerInCurrentSession {
     $binDir = Join-Path $InstallDir "bin"

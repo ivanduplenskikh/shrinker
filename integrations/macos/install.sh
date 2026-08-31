@@ -9,7 +9,6 @@ INSTALL_DIR="${SHRINKER_INSTALL_DIR:-$HOME/.shrinker}"
 SKIP_AGENT_RULES=0
 COPILOT_ONLY=0
 CLAUDE_ONLY=0
-PROFILE_PATH="${PROFILE_PATH:-$HOME/.zshrc}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -21,7 +20,6 @@ while [[ $# -gt 0 ]]; do
     --skip-agent-rules) SKIP_AGENT_RULES=1 ;;
     --copilot-only) COPILOT_ONLY=1 ;;
     --claude-only) CLAUDE_ONLY=1 ;;
-    --profile-path) PROFILE_PATH="${2:-}"; shift ;;
     *) printf 'Unknown option: %s\n' "$1" >&2; exit 1 ;;
   esac
   shift
@@ -35,7 +33,7 @@ arguments=(install)
 (( COPILOT_ONLY )) && arguments+=(--copilot-only)
 (( CLAUDE_ONLY )) && arguments+=(--claude-only)
 [[ -n "$VERSION" ]] && arguments+=(--version "$VERSION")
-arguments+=(--install-dir "$INSTALL_DIR" --profile-path "$PROFILE_PATH")
+arguments+=(--install-dir "$INSTALL_DIR")
 
 if (( LOCAL )); then
   cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

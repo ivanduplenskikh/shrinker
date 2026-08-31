@@ -9,7 +9,6 @@ COPILOT_ONLY=0
 CLAUDE_ONLY=0
 PURGE_DATA=0
 DASHBOARD_PORT=4317
-PROFILE_PATH="${PROFILE_PATH:-$HOME/.zshrc}"
 CONFIG_PATH="${SHRINKER_CONFIG_PATH:-$HOME/.shrinker/config}"
 DATA_DIR="$(dirname "$CONFIG_PATH")"
 UNINSTALL_STEP=0
@@ -26,7 +25,6 @@ while [[ $# -gt 0 ]]; do
     --skip-agent-rules) SKIP_AGENT_RULES=1 ;;
     --copilot-only) COPILOT_ONLY=1 ;;
     --claude-only) CLAUDE_ONLY=1 ;;
-    --profile-path) PROFILE_PATH="${2:-}"; shift ;;
     --install-dir) INSTALL_DIR="${2:-}"; shift ;;
     --remove-install-dir) REMOVE_INSTALL_DIR=1 ;;
     --purge-data) PURGE_DATA=1 ;;
@@ -93,8 +91,8 @@ else
   print_step "⏭️" "Skipped unlink/removal."
 fi
 print_step "🔧" "Removing legacy shell profile integration..."
-remove_profile_integration "$PROFILE_PATH"
-remove_path_integration "$PROFILE_PATH"
+remove_profile_integration "$HOME/.zshrc"
+remove_path_integration "$HOME/.zshrc"
 if (( SKIP_AGENT_RULES == 0 )); then
   (( CLAUDE_ONLY )) || remove_agent_rules "$HOME/.copilot/copilot-instructions.md"
   (( COPILOT_ONLY )) || remove_agent_rules "$HOME/.claude/CLAUDE.md"
