@@ -53,6 +53,17 @@ func TestGitLogPreservesUsefulCommitContext(t *testing.T) {
 	}
 }
 
+func TestNpmPreservesVulnerabilityAuditSummary(t *testing.T) {
+	raw := "npm install\nadded 515 packages, and audited 516 packages in 20s\n141 packages are looking for funding\n7 vulnerabilities (2 moderate, 5 high)\n"
+	result := Apply(raw, "npm", Options{MaxLines: 20, Command: []string{"npm", "install"}})
+
+	for _, expected := range []string{"added 515 packages, and audited 516 packages in 20s", "7 vulnerabilities (2 moderate, 5 high)"} {
+		if !strings.Contains(result.Output, expected) {
+			t.Errorf("npm output missing %q:\n%s", expected, result.Output)
+		}
+	}
+}
+
 func TestAutoDetectionCoversCommandFamilies(t *testing.T) {
 	tests := map[string]Kind{
 		"git status":  Detect([]string{"git", "status"}),

@@ -10,7 +10,7 @@ import (
 
 var importantOutput = regexp.MustCompile(`(?i)\b(error|failed|failure|fatal|warning?|exception|panic)\b`)
 var tableHeaderPattern = regexp.MustCompile(`\S\s{2,}\S`)
-var npmImportantPattern = regexp.MustCompile(`(?i)\b(added|removed|changed|audited|vulnerabilit|packages?|dependencies|found 0 vulnerabilities)\b`)
+var npmImportantPattern = regexp.MustCompile(`(?i)\b(added|removed|changed|audited|vulnerabilit\w*|packages?|dependencies)\b`)
 var npmNoisePattern = regexp.MustCompile(`(?i)^(npm\s+(notice|timing|http|verb)\s+|[|/\\-]+$|\d+%$)`)
 var testFailurePattern = regexp.MustCompile(`(?i)\b(expected|received|assert(?:ion)?|not ok)\b`)
 var testPassingPattern = regexp.MustCompile(`(?i)^\s*(✓|✔|ok\b|pass(?:ed)?\b|\.{2,})`)
