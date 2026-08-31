@@ -83,17 +83,6 @@ stop_dashboard_server() {
   fi
 }
 
-# Only drop installer-managed keys so hand-written settings survive.
-remove_managed_config() {
-  [[ -f "$CONFIG_PATH" ]] || return 0
-  grep -Ev '^[[:space:]]*SHRINKER_TRACK_UNCOVERED[[:space:]]*=' "$CONFIG_PATH" > "$CONFIG_PATH.tmp" || true
-  if [[ -s "$CONFIG_PATH.tmp" ]]; then
-    mv "$CONFIG_PATH.tmp" "$CONFIG_PATH"
-  else
-    rm -f "$CONFIG_PATH.tmp" "$CONFIG_PATH"
-  fi
-}
-
 print_step "🛑" "Stopping the dashboard server on port $DASHBOARD_PORT..."
 stop_dashboard_server
 
@@ -113,8 +102,6 @@ else
   print_step "⏭️" "Skipped managed agent rules."
 fi
 
-print_step "🔧" "Removing managed settings..."
-remove_managed_config
 rm -f "$DATA_DIR/dashboard.html"
 
 if (( PURGE_DATA == 1 )); then

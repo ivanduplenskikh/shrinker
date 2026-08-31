@@ -315,13 +315,11 @@ optionsDone:
 		}, metrics.DefaultStatsPath()); err != nil {
 			fmt.Fprintf(os.Stderr, "[shrinker] could not record stats: %v\n", err)
 		}
-		if metrics.CoverageEnabled() {
-			matched := kind != filters.KindAuto || filters.Detect(args) != filters.KindLog
-			if reason := metrics.ClassifyWrapped(matched, measurements); reason != "" {
-				if signature, ok := metrics.CommandSignatureFor(args); ok {
-					if err := metrics.RecordUncovered(metrics.UncoveredStatistic{Source: "wrapped", Reason: reason, Executable: signature.Executable, Subcommand: signature.Subcommand, RawBytes: measurements.RawBytes, RawEstimatedTokens: measurements.RawEstimatedTokens, ExitCode: &result.ExitCode}, metrics.DefaultStatsPath()); err != nil {
-						fmt.Fprintf(os.Stderr, "[shrinker] could not record uncovered command: %v\n", err)
-					}
+		matched := kind != filters.KindAuto || filters.Detect(args) != filters.KindLog
+		if reason := metrics.ClassifyWrapped(matched, measurements); reason != "" {
+			if signature, ok := metrics.CommandSignatureFor(args); ok {
+				if err := metrics.RecordUncovered(metrics.UncoveredStatistic{Source: "wrapped", Reason: reason, Executable: signature.Executable, Subcommand: signature.Subcommand, RawBytes: measurements.RawBytes, RawEstimatedTokens: measurements.RawEstimatedTokens, ExitCode: &result.ExitCode}, metrics.DefaultStatsPath()); err != nil {
+					fmt.Fprintf(os.Stderr, "[shrinker] could not record uncovered command: %v\n", err)
 				}
 			}
 		}

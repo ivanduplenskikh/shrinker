@@ -156,9 +156,6 @@ func RecordRun(stat RunStatistic, databasePath string) error {
 }
 
 func RecordUncovered(stat UncoveredStatistic, databasePath string) error {
-	if !CoverageEnabled() {
-		return nil
-	}
 	executable := SanitizeToken(stat.Executable)
 	if executable == "" {
 		return nil
@@ -206,7 +203,7 @@ func GetStats(databasePath string) (StatsSummary, error) {
 		return StatsSummary{}, err
 	}
 	defer database.Close()
-	result := StatsSummary{DatabasePath: databasePath, ByFilter: []StatsRow{}, UncoveredTrackingEnabled: CoverageEnabled()}
+	result := StatsSummary{DatabasePath: databasePath, ByFilter: []StatsRow{}, UncoveredTrackingEnabled: true}
 	result.Uncovered, err = GetCoverageStats(databasePath)
 	if err != nil {
 		return result, err

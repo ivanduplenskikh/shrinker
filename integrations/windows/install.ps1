@@ -7,25 +7,19 @@ param(
     [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
     [switch]$ClaudeOnly,
-    [switch]$EnableUncoveredTracking,
-    [switch]$DisableUncoveredTracking,
-    [string]$ProfilePath = $PROFILE,
-    [string]$ConfigPath = $(if ($env:SHRINKER_CONFIG_PATH) { $env:SHRINKER_CONFIG_PATH } else { Join-Path $HOME ".shrinker/config" })
+    [string]$ProfilePath = $PROFILE
 )
 
 $ErrorActionPreference = "Stop"
 if ($CopilotOnly -and $ClaudeOnly) { throw "Use either -CopilotOnly or -ClaudeOnly, not both." }
-if ($EnableUncoveredTracking -and $DisableUncoveredTracking) { throw "Use either -EnableUncoveredTracking or -DisableUncoveredTracking, not both." }
 
 $arguments = @("install")
 if ($Local) { $arguments += "--local" }
 if ($SkipAgentRules) { $arguments += "--skip-agent-rules" }
 if ($CopilotOnly) { $arguments += "--copilot-only" }
 if ($ClaudeOnly) { $arguments += "--claude-only" }
-if ($EnableUncoveredTracking) { $arguments += "--track-uncovered=true" }
-if ($DisableUncoveredTracking) { $arguments += "--track-uncovered=false" }
 if ($Version) { $arguments += @("--version", $Version) }
-$arguments += @("--install-dir", $InstallDir, "--profile-path", $ProfilePath, "--config-path", $ConfigPath)
+$arguments += @("--install-dir", $InstallDir, "--profile-path", $ProfilePath)
 
 function Enable-ShrinkerInCurrentSession {
     $binDir = Join-Path $InstallDir "bin"

@@ -50,9 +50,7 @@ func install(args []string) {
 	archivePath := flags.String("archive", "", "use a downloaded release archive")
 	installDir := flags.String("install-dir", defaultInstallDir(), "installation directory")
 	profile := flags.String("profile-path", defaultProfile(), "shell profile to update")
-	config := flags.String("config-path", defaultConfig(), "configuration file")
 	skipRules := flags.Bool("skip-agent-rules", false, "skip agent rules")
-	track := flags.Bool("track-uncovered", true, "enable uncovered command tracking")
 	_ = flags.Parse(args)
 	root, err := os.Getwd()
 	if err != nil {
@@ -111,9 +109,6 @@ func install(args []string) {
 		if err := command.Run(); err != nil {
 			fail("Go build failed: " + err.Error())
 		}
-	}
-	if err := setConfig(*config, "SHRINKER_TRACK_UNCOVERED", boolValue(*track)); err != nil {
-		fail(err.Error())
 	}
 	if err := removeLegacyProfileIntegrations(profilePaths(*profile)); err != nil {
 		fail(err.Error())
@@ -230,28 +225,6 @@ func installRules(body string) error {
 		}
 	}
 	return nil
-}
-
-func setConfig(path, key, value string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	contents, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	lines := strings.Split(string(contents), "\n")
-	next := []string{}
-	for _, line := range lines {
-		if strings.HasPrefix(strings.TrimSpace(line), key+"=") {
-			continue
-		}
-		if line != "" {
-			next = append(next, line)
-		}
-	}
-	next = append(next, key+"="+value)
-	return os.WriteFile(path, []byte(strings.Join(next, "\n")+"\n"), 0o600)
 }
 
 func addPath(path, directory string) error {
@@ -506,19 +479,7 @@ func copyTree(source, destination string) error {
 	return copyFile(source, destination)
 }
 func fileExists(path string) bool { _, err := os.Stat(path); return err == nil }
-func boolValue(value bool) string {
-	if value {
-		return "1"
-	}
-	return "0"
-}
 func defaultInstallDir() string { home, _ := os.UserHomeDir(); return filepath.Join(home, ".shrinker") }
-func defaultConfig() string {
-	if value := os.Getenv("SHRINKER_CONFIG_PATH"); value != "" {
-		return value
-	}
-	return filepath.Join(defaultInstallDir(), "config")
-}
 func defaultProfile() string {
 	home, _ := os.UserHomeDir()
 	if runtime.GOOS == "windows" {
@@ -608,6 +569,6 @@ func addUserPath(directory string) error {
 
 func quotePowerShell(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
 func usage() {
-	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive --install-dir --profile-path --config-path --skip-agent-rules")
+	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive --install-dir --profile-path --skip-agent-rules")
 }
 func fail(message string) { fmt.Fprintln(os.Stderr, message); os.Exit(1) }

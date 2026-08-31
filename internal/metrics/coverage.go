@@ -25,10 +25,6 @@ type CommandSignature struct {
 var tokenPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._+\-]{0,63}$`)
 var subcommandExecutables = map[string]bool{"git": true, "npm": true, "docker": true, "kubectl": true, "gh": true}
 
-func CoverageEnabled() bool {
-	return config.IsTruthy(config.ResolveSetting("SHRINKER_TRACK_UNCOVERED", config.DefaultPath()))
-}
-
 func SanitizeToken(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	if tokenPattern.MatchString(value) {

@@ -81,14 +81,6 @@ function Stop-DashboardServer {
     catch { }
 }
 
-# Only drop installer-managed keys so hand-written settings survive.
-function Remove-ManagedConfig {
-    if (-not (Test-Path -LiteralPath $ConfigPath)) { return }
-    $remaining = @(Get-Content -LiteralPath $ConfigPath | Where-Object { $_ -notmatch '^\s*SHRINKER_TRACK_UNCOVERED\s*=' })
-    if ($remaining.Count -gt 0) { Set-Content -LiteralPath $ConfigPath -Value $remaining -Encoding utf8 }
-    else { Remove-Item -LiteralPath $ConfigPath -Force -ErrorAction SilentlyContinue }
-}
-
 Write-UninstallStep "🛑" "Stopping the dashboard server on port $Port..."
 Stop-DashboardServer $Port
 
@@ -105,8 +97,6 @@ if (-not $SkipAgentRules) {
 }
 else { Write-UninstallStep "⏭️" "Skipped managed agent rules." }
 
-Write-UninstallStep "🔧" "Removing managed settings..."
-Remove-ManagedConfig
 Remove-Item -LiteralPath (Join-Path $DataDir "dashboard.html") -Force -ErrorAction SilentlyContinue
 
 if ($PurgeData) {
