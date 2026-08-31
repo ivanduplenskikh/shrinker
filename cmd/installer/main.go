@@ -479,7 +479,7 @@ func copyTree(source, destination string) error {
 	return copyFile(source, destination)
 }
 func fileExists(path string) bool { _, err := os.Stat(path); return err == nil }
-func defaultInstallDir() string { home, _ := os.UserHomeDir(); return filepath.Join(home, ".shrinker") }
+func defaultInstallDir() string   { home, _ := os.UserHomeDir(); return filepath.Join(home, ".shrinker") }
 func defaultProfile() string {
 	home, _ := os.UserHomeDir()
 	if runtime.GOOS == "windows" {
