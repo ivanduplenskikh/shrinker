@@ -100,6 +100,25 @@ func TestRemoveAllWithRetryRemovesDirectory(t *testing.T) {
 	}
 }
 
+func TestCopyFileWithRetryCopiesFile(t *testing.T) {
+	directory := t.TempDir()
+	source := filepath.Join(directory, "source.txt")
+	destination := filepath.Join(directory, "nested", "destination.txt")
+	if err := os.WriteFile(source, []byte("replacement"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyFileWithRetry(source, destination); err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(contents) != "replacement" {
+		t.Fatalf("contents = %q, want replacement", contents)
+	}
+}
+
 func TestRequestDashboardShutdownPostsToEndpoint(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method != http.MethodPost || request.URL.Path != "/__shrinker_shutdown" {

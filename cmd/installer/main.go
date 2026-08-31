@@ -102,7 +102,8 @@ func install(args []string) {
 		if err := extractArchive(archive, staging); err != nil {
 			fail(err.Error())
 		}
-		if err := copyFile(filepath.Join(staging, "bin", filepath.Base(binary)), binary); err != nil {
+		stopDashboardServer()
+		if err := copyFileWithRetry(filepath.Join(staging, "bin", filepath.Base(binary)), binary); err != nil {
 			fail(err.Error())
 		}
 		for _, relative := range []string{"integrations", "templates", "manifest.json"} {
@@ -361,6 +362,18 @@ func copyFile(src, dst string) error {
 	}
 	defer out.Close()
 	_, err = io.Copy(out, in)
+	return err
+}
+
+func copyFileWithRetry(src, dst string) error {
+	var err error
+	for attempt := 0; attempt < 20; attempt++ {
+		err = copyFile(src, dst)
+		if err == nil || runtime.GOOS != "windows" || !errors.Is(err, fs.ErrPermission) {
+			return err
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 	return err
 }
 
