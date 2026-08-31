@@ -48,7 +48,6 @@ func install(args []string) {
 	releaseRepo := flags.String("release-repo", "ivanduplenskikh/shrinker", "GitHub repository")
 	assetBaseURL := flags.String("asset-base-url", "", "release asset base URL")
 	archivePath := flags.String("archive", "", "use a downloaded release archive")
-	skipRules := flags.Bool("skip-agent-rules", false, "skip agent rules")
 	_ = flags.Parse(args)
 	root, err := os.Getwd()
 	if err != nil {
@@ -120,14 +119,12 @@ func install(args []string) {
 			fail(err.Error())
 		}
 	}
-	if !*skipRules {
-		body, err := os.ReadFile(filepath.Join(root, "templates", "agent-rules.md"))
-		if err != nil {
-			fail(err.Error())
-		}
-		if err := installRules(string(body)); err != nil {
-			fail(err.Error())
-		}
+	body, err := os.ReadFile(filepath.Join(root, "templates", "agent-rules.md"))
+	if err != nil {
+		fail(err.Error())
+	}
+	if err := installRules(string(body)); err != nil {
+		fail(err.Error())
 	}
 	fmt.Printf("Installed shrinker %s at %s\n", installedVersion, binary)
 	if err := startDashboard(binary); err != nil {
@@ -568,6 +565,6 @@ func addUserPath(directory string) error {
 
 func quotePowerShell(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
 func usage() {
-	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive --skip-agent-rules")
+	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive")
 }
 func fail(message string) { fmt.Fprintln(os.Stderr, message); os.Exit(1) }

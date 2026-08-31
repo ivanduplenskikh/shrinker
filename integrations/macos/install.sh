@@ -5,7 +5,6 @@ LOCAL=0
 VERSION=""
 RELEASE_REPO="ivanduplenskikh/shrinker"
 ASSET_BASE_URL=""
-SKIP_AGENT_RULES=0
 COPILOT_ONLY=0
 CLAUDE_ONLY=0
 
@@ -15,7 +14,6 @@ while [[ $# -gt 0 ]]; do
     --version) VERSION="${2:-}"; shift ;;
     --release-repo) RELEASE_REPO="${2:-}"; shift ;;
     --asset-base-url) ASSET_BASE_URL="${2:-}"; shift ;;
-    --skip-agent-rules) SKIP_AGENT_RULES=1 ;;
     --copilot-only) COPILOT_ONLY=1 ;;
     --claude-only) CLAUDE_ONLY=1 ;;
     *) printf 'Unknown option: %s\n' "$1" >&2; exit 1 ;;
@@ -27,7 +25,6 @@ if (( COPILOT_ONLY && CLAUDE_ONLY )); then echo "Use either --copilot-only or --
 
 arguments=(install)
 (( LOCAL )) && arguments+=(--local)
-(( SKIP_AGENT_RULES )) && arguments+=(--skip-agent-rules)
 (( COPILOT_ONLY )) && arguments+=(--copilot-only)
 (( CLAUDE_ONLY )) && arguments+=(--claude-only)
 [[ -n "$VERSION" ]] && arguments+=(--version "$VERSION")

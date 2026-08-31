@@ -3,7 +3,6 @@ param(
     [string]$Version,
     [string]$ReleaseRepo = "ivanduplenskikh/shrinker",
     [string]$AssetBaseUrl,
-    [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
     [switch]$ClaudeOnly
 )
@@ -13,7 +12,6 @@ if ($CopilotOnly -and $ClaudeOnly) { throw "Use either -CopilotOnly or -ClaudeOn
 
 $arguments = @("install")
 if ($Local) { $arguments += "--local" }
-if ($SkipAgentRules) { $arguments += "--skip-agent-rules" }
 if ($CopilotOnly) { $arguments += "--copilot-only" }
 if ($ClaudeOnly) { $arguments += "--claude-only" }
 if ($Version) { $arguments += @("--version", $Version) }
