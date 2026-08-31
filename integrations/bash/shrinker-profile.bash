@@ -37,6 +37,7 @@ __shrinker_should_route() {
   if __shrinker_is_windows_posix_shell && __shrinker_requires_unix_semantics "$command_name"; then
     return 1
   fi
+  [ -t 1 ] || return 1
   rules="$(__shrinker_rules_for "$command_name")"
   [ -n "$rules" ] || return 1
   [ "$rules" = '*' ] && return 0

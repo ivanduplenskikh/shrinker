@@ -59,6 +59,9 @@ function global:Use-ShrinkRouting {
     if ($allowlist.Count -eq 0) {
         return $false
     }
+    if ([Console]::IsOutputRedirected) {
+        return $false
+    }
     if ($allowlist -contains "*") {
         return $true
     }

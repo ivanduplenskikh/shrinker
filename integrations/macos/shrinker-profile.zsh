@@ -89,6 +89,8 @@ _shrink_should_route() {
   local cmd="$1"
   shift
 
+  [[ -t 1 ]] || return 1
+
   local rules="${SHRINK_RULES[$cmd]}"
   [[ -z "$rules" ]] && return 1
   [[ "$rules" == *"*"* ]] && return 0
