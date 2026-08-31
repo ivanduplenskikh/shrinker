@@ -70,7 +70,7 @@ func install(args []string) {
 		fail("use either --enable-profile-routing or --skip-profile, not both")
 	}
 	if !enableProfileSet && !skipProfileSet {
-		*enableProfile = confirmProfileRouting()
+		*enableProfile = profileHasIntegration(*profile) || confirmProfileRouting()
 	}
 	root, err := os.Getwd()
 	if err != nil {
@@ -305,6 +305,10 @@ func addPath(path, directory string) error {
 }
 func addProfile(path, integration string) error {
 	return replaceBlock(path, blockStart, blockEnd, blockStart+"\n"+profileSource(integration)+"\n"+blockEnd)
+}
+func profileHasIntegration(path string) bool {
+	contents, err := os.ReadFile(path)
+	return err == nil && strings.Contains(string(contents), blockStart) && strings.Contains(string(contents), blockEnd)
 }
 func replaceBlock(path, start, end, block string) error {
 	contents, err := os.ReadFile(path)

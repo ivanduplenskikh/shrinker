@@ -72,6 +72,19 @@ func TestBashProfileFile(t *testing.T) {
 	}
 }
 
+func TestProfileHasIntegration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "profile.ps1")
+	if err := os.WriteFile(path, []byte(blockStart+"\n. shrinker-profile.ps1\n"+blockEnd), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !profileHasIntegration(path) {
+		t.Fatal("profile integration was not detected")
+	}
+	if profileHasIntegration(filepath.Join(t.TempDir(), "missing.ps1")) {
+		t.Fatal("missing profile was detected as integrated")
+	}
+}
+
 func TestInstalledManifestVersion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "manifest.json")
 	if err := os.WriteFile(path, []byte(`{"name":"shrinker","version":"0.15.0","target":"win-x64"}`), 0o600); err != nil {
