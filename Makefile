@@ -8,3 +8,7 @@ dashboard:
 
 dashboard-start:
 	cd packages/dashboard-ui && npm run start
+
+install-locally:
+	make dashboard
+	go run ./cmd/installer install
