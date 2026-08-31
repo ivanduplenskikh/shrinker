@@ -97,7 +97,7 @@ if (-not $SkipUnlink) {
     Remove-ReleaseInstall
 }
 else { Write-UninstallStep "⏭️" "Skipped removal." }
-Write-UninstallStep "🔧" "Removing PowerShell profile integration..."
+Write-UninstallStep "🔧" "Removing legacy PowerShell profile integration..."
 Remove-ProfileIntegration $ProfilePath
 if (-not $SkipAgentRules) {
     if (-not $ClaudeOnly) { Remove-AgentRules (Join-Path $HOME ".copilot\copilot-instructions.md") }

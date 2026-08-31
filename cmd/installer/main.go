@@ -3,7 +3,6 @@ package main
 import (
 	"archive/tar"
 	"archive/zip"
-	"bufio"
 	"compress/gzip"
 	"encoding/json"
 	"errors"
@@ -52,26 +51,9 @@ func install(args []string) {
 	installDir := flags.String("install-dir", defaultInstallDir(), "installation directory")
 	profile := flags.String("profile-path", defaultProfile(), "shell profile to update")
 	config := flags.String("config-path", defaultConfig(), "configuration file")
-	enableProfile := flags.Bool("enable-profile-routing", false, "enable shell command routing")
-	skipProfile := flags.Bool("skip-profile", false, "skip shell profile changes")
 	skipRules := flags.Bool("skip-agent-rules", false, "skip agent rules")
 	track := flags.Bool("track-uncovered", true, "enable uncovered command tracking")
 	_ = flags.Parse(args)
-	var enableProfileSet, skipProfileSet bool
-	flags.Visit(func(flag *flag.Flag) {
-		switch flag.Name {
-		case "enable-profile-routing":
-			enableProfileSet = true
-		case "skip-profile":
-			skipProfileSet = *skipProfile
-		}
-	})
-	if *enableProfile && *skipProfile {
-		fail("use either --enable-profile-routing or --skip-profile, not both")
-	}
-	if !enableProfileSet && !skipProfileSet {
-		*enableProfile = profileHasIntegration(*profile) || confirmProfileRouting()
-	}
 	root, err := os.Getwd()
 	if err != nil {
 		fail(err.Error())
@@ -133,21 +115,14 @@ func install(args []string) {
 	if err := setConfig(*config, "SHRINKER_TRACK_UNCOVERED", boolValue(*track)); err != nil {
 		fail(err.Error())
 	}
-	if !*skipProfile {
-		if err := addUserPath(binDir); err != nil {
-			fail(err.Error())
-		}
-		if err := addPath(*profile, binDir); err != nil {
-			fail(err.Error())
-		}
-		if *enableProfile {
-			if err := addProfile(*profile, filepath.Join(root, profileFile())); err != nil {
-				fail(err.Error())
-			}
-			if err := addProfile(bashProfilePath(), filepath.Join(root, bashProfileFile())); err != nil {
-				fail(err.Error())
-			}
-		}
+	if err := removeLegacyProfileIntegrations(profilePaths(*profile)); err != nil {
+		fail(err.Error())
+	}
+	if err := addUserPath(binDir); err != nil {
+		fail(err.Error())
+	}
+	if err := addPath(*profile, binDir); err != nil {
+		fail(err.Error())
 	}
 	if !*skipRules {
 		body, err := os.ReadFile(filepath.Join(root, "templates", "agent-rules.md"))
@@ -196,39 +171,18 @@ func installedManifestVersion(path string) (string, error) {
 	return "v" + strings.TrimPrefix(release.Version, "v"), nil
 }
 
-func confirmProfileRouting() bool {
-	info, err := os.Stdin.Stat()
-	if err != nil || info.Mode()&os.ModeCharDevice == 0 {
-		return true
-	}
-	fmt.Print("Enable automatic shell command routing? [Y/n] ")
-	answer, err := bufio.NewReader(os.Stdin).ReadString('\n')
-	if err != nil {
-		return true
-	}
-	switch strings.ToLower(strings.TrimSpace(answer)) {
-	case "n", "no":
-		return false
-	default:
-		return true
-	}
-}
-
 func uninstall(args []string) {
 	flags := flag.NewFlagSet("uninstall", flag.ExitOnError)
 	installDir := flags.String("install-dir", defaultInstallDir(), "installation directory")
 	profile := flags.String("profile-path", defaultProfile(), "shell profile to update")
-	skipProfile := flags.Bool("skip-profile", false, "skip shell profile changes")
 	flags.Parse(args)
 	binDir := filepath.Join(*installDir, "bin")
-	if !*skipProfile {
-		for _, profilePath := range profilePaths(*profile) {
-			if err := removeBlock(profilePath, pathBlockStart(), pathBlockEnd()); err != nil {
-				fail(err.Error())
-			}
-			if err := removeBlock(profilePath, blockStart, blockEnd); err != nil {
-				fail(err.Error())
-			}
+	for _, profilePath := range profilePaths(*profile) {
+		if err := removeBlock(profilePath, pathBlockStart(), pathBlockEnd()); err != nil {
+			fail(err.Error())
+		}
+		if err := removeBlock(profilePath, blockStart, blockEnd); err != nil {
+			fail(err.Error())
 		}
 	}
 	stopDashboardServer()
@@ -303,13 +257,6 @@ func setConfig(path, key, value string) error {
 func addPath(path, directory string) error {
 	return replaceBlock(path, pathBlockStart(), pathBlockEnd(), pathBlockStart()+"\n"+pathExport(directory)+"\n"+pathBlockEnd())
 }
-func addProfile(path, integration string) error {
-	return replaceBlock(path, blockStart, blockEnd, blockStart+"\n"+profileSource(integration)+"\n"+blockEnd)
-}
-func profileHasIntegration(path string) bool {
-	contents, err := os.ReadFile(path)
-	return err == nil && strings.Contains(string(contents), blockStart) && strings.Contains(string(contents), blockEnd)
-}
 func replaceBlock(path, start, end, block string) error {
 	contents, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
@@ -350,6 +297,14 @@ func removeBlock(path, start, end string) error {
 		text = text[:i] + text[i+j+len(end):]
 	}
 	return os.WriteFile(path, []byte(strings.TrimLeft(text, "\n")), 0o600)
+}
+func removeLegacyProfileIntegrations(paths []string) error {
+	for _, path := range paths {
+		if err := removeBlock(path, blockStart, blockEnd); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
@@ -567,10 +522,8 @@ func defaultConfig() string {
 func defaultProfile() string {
 	home, _ := os.UserHomeDir()
 	if runtime.GOOS == "windows" {
-		if output, err := exec.Command("powershell", "-NoProfile", "-Command", "$PROFILE").Output(); err == nil {
-			if profile := strings.TrimSpace(string(output)); profile != "" {
-				return profile
-			}
+		if profile := powerShellProfile("powershell"); profile != "" {
+			return profile
 		}
 		if value := os.Getenv("PROFILE"); value != "" {
 			return value
@@ -584,10 +537,22 @@ func profilePaths(profile string) []string {
 	if runtime.GOOS == "windows" {
 		home, _ := os.UserHomeDir()
 		paths = append(paths,
+			powerShellProfile("powershell"),
+			powerShellProfile("pwsh"),
 			filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
 			filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
 		)
 	}
+	return uniquePaths(paths)
+}
+func powerShellProfile(executable string) string {
+	output, err := exec.Command(executable, "-NoProfile", "-Command", "$PROFILE").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+func uniquePaths(paths []string) []string {
 	result := []string{}
 	seen := map[string]bool{}
 	for _, path := range paths {
@@ -598,13 +563,6 @@ func profilePaths(profile string) []string {
 	}
 	return result
 }
-func profileFile() string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join("integrations", "windows", "shrinker-profile.ps1")
-	}
-	return filepath.Join("integrations", "macos", "shrinker-profile.zsh")
-}
-func bashProfileFile() string { return filepath.Join("integrations", "bash", "shrinker-profile.bash") }
 func bashProfilePath() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".bashrc")
@@ -649,13 +607,7 @@ func addUserPath(directory string) error {
 }
 
 func quotePowerShell(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
-func profileSource(path string) string {
-	if runtime.GOOS == "windows" {
-		return ". \"" + path + "\""
-	}
-	return "source \"" + path + "\""
-}
 func usage() {
-	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive --install-dir --profile-path --config-path --enable-profile-routing --skip-profile --skip-agent-rules")
+	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive --install-dir --profile-path --config-path --skip-agent-rules")
 }
 func fail(message string) { fmt.Fprintln(os.Stderr, message); os.Exit(1) }

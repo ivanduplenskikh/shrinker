@@ -103,7 +103,7 @@ if (( SKIP_UNLINK == 0 )); then
 else
   print_step "⏭️" "Skipped unlink/removal."
 fi
-print_step "🔧" "Removing shell profile integration..."
+print_step "🔧" "Removing legacy shell profile integration..."
 remove_profile_integration "$PROFILE_PATH"
 remove_path_integration "$PROFILE_PATH"
 if (( SKIP_AGENT_RULES == 0 )); then

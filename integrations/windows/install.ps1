@@ -4,8 +4,6 @@ param(
     [string]$ReleaseRepo = "ivanduplenskikh/shrinker",
     [string]$AssetBaseUrl,
     [string]$InstallDir = (Join-Path $HOME ".shrinker"),
-    [switch]$EnableProfileRouting,
-    [switch]$SkipProfile,
     [switch]$SkipAgentRules,
     [switch]$CopilotOnly,
     [switch]$ClaudeOnly,
@@ -16,14 +14,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-if ($EnableProfileRouting -and $SkipProfile) { throw "Use either -EnableProfileRouting or -SkipProfile, not both." }
 if ($CopilotOnly -and $ClaudeOnly) { throw "Use either -CopilotOnly or -ClaudeOnly, not both." }
 if ($EnableUncoveredTracking -and $DisableUncoveredTracking) { throw "Use either -EnableUncoveredTracking or -DisableUncoveredTracking, not both." }
 
 $arguments = @("install")
 if ($Local) { $arguments += "--local" }
-if ($EnableProfileRouting) { $arguments += "--enable-profile-routing" }
-if ($SkipProfile) { $arguments += "--skip-profile" }
 if ($SkipAgentRules) { $arguments += "--skip-agent-rules" }
 if ($CopilotOnly) { $arguments += "--copilot-only" }
 if ($ClaudeOnly) { $arguments += "--claude-only" }
@@ -36,12 +31,6 @@ function Enable-ShrinkerInCurrentSession {
     $binDir = Join-Path $InstallDir "bin"
     if ((Test-Path -LiteralPath $binDir) -and -not (($env:Path -split [IO.Path]::PathSeparator) -contains $binDir)) {
         $env:Path = "$binDir$([IO.Path]::PathSeparator)$env:Path"
-    }
-
-    $integration = Join-Path $InstallDir "integrations\windows\shrinker-profile.ps1"
-    $profileContent = if (Test-Path -LiteralPath $ProfilePath) { Get-Content -LiteralPath $ProfilePath -Raw } else { "" }
-    if ((Test-Path -LiteralPath $integration) -and $profileContent.Contains("# >>> shrinker integration >>>")) {
-        . $integration
     }
 }
 

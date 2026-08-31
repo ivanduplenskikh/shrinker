@@ -66,22 +66,51 @@ func TestDashboardServerCommandUsesInstalledBinary(t *testing.T) {
 	}
 }
 
-func TestBashProfileFile(t *testing.T) {
-	if got, want := bashProfileFile(), filepath.Join("integrations", "bash", "shrinker-profile.bash"); got != want {
-		t.Fatalf("bash profile file = %q, want %q", got, want)
+func TestRemoveBlockRemovesLegacyProfileIntegration(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "profile.ps1")
+	secondPath := filepath.Join(directory, "bashrc")
+	contents := "before\n" + blockStart + "\n. shrinker-profile.ps1\n" + blockEnd + "\n" + pathBlockStart() + "\nPATH\n" + pathBlockEnd() + "\nafter\n"
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(secondPath, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := removeLegacyProfileIntegrations([]string{path, secondPath, filepath.Join(directory, "missing")}); err != nil {
+		t.Fatal(err)
+	}
+	for _, profilePath := range []string{path, secondPath} {
+		updated, err := os.ReadFile(profilePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(updated)
+		if strings.Contains(text, blockStart) || strings.Contains(text, blockEnd) {
+			t.Fatalf("legacy integration remained: %q", text)
+		}
+		if !strings.Contains(text, pathBlockStart()) || !strings.Contains(text, "before") || !strings.Contains(text, "after") {
+			t.Fatalf("unexpected profile contents: %q", text)
+		}
+	}
+	if err := removeLegacyProfileIntegrations([]string{path, secondPath}); err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestProfileHasIntegration(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "profile.ps1")
-	if err := os.WriteFile(path, []byte(blockStart+"\n. shrinker-profile.ps1\n"+blockEnd), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if !profileHasIntegration(path) {
-		t.Fatal("profile integration was not detected")
-	}
-	if profileHasIntegration(filepath.Join(t.TempDir(), "missing.ps1")) {
-		t.Fatal("missing profile was detected as integrated")
+func TestUniquePathsRetainsRedirectedPowerShellProfile(t *testing.T) {
+	redirected := `C:\Users\example\OneDrive\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`
+	paths := uniquePaths([]string{
+		redirected,
+		`C:\Users\example\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`,
+		redirected,
+		"",
+	})
+	if got, want := paths, []string{
+		redirected,
+		`C:\Users\example\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`,
+	}; !sameStrings(got, want) {
+		t.Fatalf("unique paths = %q, want %q", got, want)
 	}
 }
 

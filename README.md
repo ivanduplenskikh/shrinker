@@ -55,8 +55,6 @@ Network allowlists need access to `raw.githubusercontent.com` for the installer 
 
 After installation, Shrinker starts its local dashboard server at `http://127.0.0.1:4317` in the background.
 
-When a configured shell starts, Shrinker checks GitHub Releases in the background at most once per day. A newer version is shown once on a later shell startup. Set `SHRINKER_DISABLE_UPDATE_CHECK=1` to disable this check.
-
 ### Local checkout
 
 Install from a checkout:
@@ -71,7 +69,7 @@ On macOS:
 bash ./integrations/macos/install.sh --local
 ```
 
-The platform scripts are thin bootstrappers; installation, configuration, profile updates, and agent rules are handled by the shared Go installer. To uninstall:
+The platform scripts are thin bootstrappers; installation, configuration, PATH setup, legacy profile cleanup, and agent rules are handled by the shared Go installer. To uninstall:
 
 ```powershell
 pwsh -ExecutionPolicy Bypass -File .\integrations\windows\uninstall.ps1
@@ -84,7 +82,7 @@ bash ./integrations/macos/uninstall.sh
 To run the shared installer directly from a checkout:
 
 ```powershell
-go run ./cmd/installer install --local --enable-profile-routing
+go run ./cmd/installer install --local
 go run ./cmd/installer uninstall
 ```
 
@@ -131,47 +129,7 @@ shrinker help
 --coverage                 list commands shrinker does not cover yet
 ```
 
-`help`, `stats`, `last`, `raw`, `track`, `pipe`, and `exec` are reserved shrinker commands. Every other top-level token starts a wrapped command, so `shrinker git log` is equivalent to `shrinker exec git log`. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified. `track` is used by the shell integrations to record coverage gaps and prints nothing.
-
-## Automatic PowerShell routing
-
-The installer asks whether to enable profile integration, which routes allowlisted commands through `shrinker` and invokes the native executable for everything else. The default answer is yes. When enabled, it installs the native PowerShell or zsh integration and the Bash integration in `~/.bashrc` on Windows, macOS, and Linux. Use `-EnableProfileRouting` on Windows or `--enable-profile-routing` on macOS/Linux to enable it without a prompt; use `-SkipProfile` or `--skip-profile` to leave shell profiles unchanged.
-
-```powershell
-if (!(Test-Path $PROFILE)) {
-    New-Item -ItemType File -Path $PROFILE -Force | Out-Null
-}
-
-$integration = (Resolve-Path .\integrations\windows\shrinker-profile.ps1).Path
-Add-Content $PROFILE "`n. `"$integration`""
-. $PROFILE
-```
-
-macOS zsh profile integration:
-
-```bash
-echo '' >> ~/.zshrc
-echo '# >>> shrinker integration >>>' >> ~/.zshrc
-echo 'source "'"$(pwd)/integrations/macos/shrinker-profile.zsh"'"' >> ~/.zshrc
-echo '# <<< shrinker integration <<<' >> ~/.zshrc
-source ~/.zshrc
-```
-
-The default rules are:
-
-```text
-git status  -> shrinker git status
-git diff    -> shrinker git diff
-git log     -> shrinker git log
-docker ps   -> shrinker docker ps
-kubectl get -> shrinker kubectl get
-gh pr list  -> shrinker gh pr list
-rg/find/tail/cat/ls/dir -> shrinker <command>
-
-git push, git fetch, and all other commands -> native executable
-```
-
-Edit `$global:ShrinkPowerShellRules` in `integrations\windows\shrinker-profile.ps1` to change the allowlist. The router is now option-aware for common global flags, so forms like `git -C <path> log` and `kubectl --context prod get pods` are routed correctly.
+`help`, `stats`, `last`, `raw`, `track`, `pipe`, and `exec` are reserved shrinker commands. Every other top-level token starts a wrapped command, so `shrinker git log` is equivalent to `shrinker exec git log`. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified. Shrinker does not override native shell commands: invoke it explicitly for output you want filtered. Install and uninstall remove any legacy managed shell-routing block while preserving other profile content.
 
 ## Savings statistics
 
@@ -205,7 +163,7 @@ shrinker stats --dashboard
 shrinker exec --no-stats -- git log -n 10
 ```
 
-Detailed per-run measurements are hidden by default so agents do not spend tokens reading wrapper telemetry. Enable them for benchmarking or demos:
+Detailed per-run measurements are hidden by default so agents do not spend tokens reading telemetry. Enable them for benchmarking or demos:
 
 ```powershell
 shrinker --metrics git log -n 10
@@ -220,60 +178,9 @@ shrinker last
 shrinker last --path
 ```
 
-`raw` retrieves the exact capture referenced by a hint; `last` is a convenience for human use. The cache uses atomic publication and best-effort rotation to retain up to 20 recent files. File names contain only the executable name, not command arguments. Wrapped `git log` output never creates a recovery file or hint because the full history can be reproduced by rerunning Git; piped Git-log text still gets a recovery hint when meaningful content is omitted. Use `--no-save` for other output that should not be persisted.
+`raw` retrieves the exact capture referenced by a hint; `last` is a convenience for human use. The cache uses atomic publication and best-effort rotation to retain up to 20 recent files. File names contain only the executable name, not command arguments. `shrinker git log` output never creates a recovery file or hint because the full history can be reproduced by rerunning Git; piped Git-log text still gets a recovery hint when meaningful content is omitted. Use `--no-save` for other output that should not be persisted.
 
 For an unbounded `git log`, Shrinker adds `-n 10`, so agents receive a predictable ten-commit result and savings statistics compare that complete raw output with the compact output. Commands with an explicit `-n` or `--max-count` keep their requested limit.
-
-## Coverage gaps
-
-Shrinker only measures what it filters. Coverage tracking answers the opposite question: **which commands does an agent run that shrinker does not cover yet?** It ranks them by the estimated tokens a dedicated filter could have seen, so the top row is the next filter worth writing.
-
-The installer asks whether to enable it and stores the answer in `~/.shrinker/config`:
-
-```text
-SHRINKER_TRACK_UNCOVERED=1
-```
-
-Pass `--enable-uncovered-tracking` / `--disable-uncovered-tracking` (macOS) or `-EnableUncoveredTracking` / `-DisableUncoveredTracking` (Windows) to answer ahead of time. Non-interactive installs skip the prompt and enable tracking.
-
-The environment variable still wins for a single shell or command, in either direction:
-
-```bash
-SHRINKER_TRACK_UNCOVERED=0 shrinker git status   # off for one command
-export SHRINKER_TRACK_UNCOVERED=1                # on for this shell
-```
-
-```powershell
-$env:SHRINKER_TRACK_UNCOVERED = "1"
-```
-
-Both the CLI and the shell integration read `~/.shrinker/config`; the shell profile reads it once at load, so change it and restart the shell (or export the variable) to take effect immediately. Set `SHRINKER_CONFIG_PATH` to relocate the file.
-
-Two kinds of gaps are recorded:
-
-- `no-filter` / `low-reduction` — the command ran through shrinker, but no filter matched it, or the matching filter barely reduced the output.
-- `unlisted-subcommand` — the shell integration shadows the executable, but the subcommand is outside the routing allowlist, so the native binary ran instead (`git blame`, `docker inspect`).
-
-Read the results with:
-
-```powershell
-shrinker stats --coverage
-```
-
-```text
-Ranked by estimated tokens a dedicated filter could see:
-  Command                    Runs        Est. tokens         Avg  Reason                 Source           Last seen
-  -------------------------  ----------  -----------  ----------  ---------------------  ---------------  -------------------
-  docker inspect                 12 runs      148,204      12,350  unlisted-subcommand    shell            2025-05-14 09:22:41
-```
-
-The same data is included in `stats --json` and appears as a "Coverage gaps" panel in the dashboard.
-
-**What is stored:** the executable name and its subcommand only, plus an occurrence count, output size, and exit code — for example `docker inspect`. Command arguments, flag values, paths, and command output are never stored. Tokens that are not bare command names are dropped rather than written, so a misfiring hook cannot leak a path or secret into the database. Everything stays in `~/.shrinker/stats.db` on this machine; nothing is uploaded.
-
-Runs with small outputs (under ~200 estimated tokens) are ignored so the table stays focused on real savings. Adjust the low-reduction threshold with `SHRINKER_LOW_REDUCTION_PERCENT` (default `10`).
-
-Output volume is measured in the shell integration only when stdout is redirected — which is the agent case. Interactive terminal sessions run the native command completely untouched and are recorded with a size of zero, so pagers, colours, and prompts still behave normally.
 
 ## Demo
 
