@@ -20,15 +20,19 @@ jobs:
           - os: ubuntu-latest
             target: win-x64
             asset: release/shrinker-win-x64.zip
+            checksum: release/shrinker-win-x64.zip.sha256
           - os: ubuntu-latest
             target: macos-arm64
             asset: release/shrinker-macos-arm64.tar.gz
+            checksum: release/shrinker-macos-arm64.tar.gz.sha256
           - os: ubuntu-latest
             target: macos-x64
             asset: release/shrinker-macos-x64.tar.gz
+            checksum: release/shrinker-macos-x64.tar.gz.sha256
           - os: ubuntu-latest
             target: linux-x64
             asset: release/shrinker-linux-x64.tar.gz
+            checksum: release/shrinker-linux-x64.tar.gz.sha256
 
     steps:
       - name: Checkout
@@ -64,11 +68,15 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: shrinker-${{ matrix.target }}
-          path: ${{ matrix.asset }}
+          path: |
+            ${{ matrix.asset }}
+            ${{ matrix.checksum }}
           if-no-files-found: error
 
       - name: Attach asset to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
-          files: ${{ matrix.asset }}
+          files: |
+            ${{ matrix.asset }}
+            ${{ matrix.checksum }}

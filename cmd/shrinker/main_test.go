@@ -118,3 +118,16 @@ func TestVersionLessThan(t *testing.T) {
 		t.Fatal("version comparison returned an unexpected result")
 	}
 }
+
+func TestValidDashboardPort(t *testing.T) {
+	for _, port := range []int{1, 4317, 65535} {
+		if !validDashboardPort(port) {
+			t.Errorf("validDashboardPort(%d) = false", port)
+		}
+	}
+	for _, port := range []int{-1, 0, 65536} {
+		if validDashboardPort(port) {
+			t.Errorf("validDashboardPort(%d) = true", port)
+		}
+	}
+}

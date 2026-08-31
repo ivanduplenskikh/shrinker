@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/ivanduplenskikh/shrinker/internal/dashboard"
 )
 
 const blockStart = "# >>> shrinker integration >>>"
@@ -159,18 +160,7 @@ func uninstall(args []string) {
 }
 
 func stopDashboardServer() {
-	requestDashboardShutdown("http://127.0.0.1:4317/__shrinker_shutdown")
-}
-
-func requestDashboardShutdown(endpoint string) {
-	request, err := http.NewRequest(http.MethodPost, endpoint, nil)
-	if err != nil {
-		return
-	}
-	response, err := (&http.Client{Timeout: 2 * time.Second}).Do(request)
-	if err == nil {
-		response.Body.Close()
-	}
+	dashboard.RequestShutdown("http://127.0.0.1:4317/__shrinker_shutdown")
 }
 
 func removeAllWithRetry(path string) error {

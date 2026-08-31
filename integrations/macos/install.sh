@@ -27,6 +27,14 @@ else url="https://github.com/ivanduplenskikh/shrinker/releases/latest/download/$
 temporary="$(mktemp -d)"
 trap 'rm -rf "$temporary"' EXIT
 curl -fL "$url" -o "$temporary/$asset"
+curl -fL "$url.sha256" -o "$temporary/$asset.sha256"
+expected="$(awk '{print $1}' "$temporary/$asset.sha256")"
+if command -v shasum >/dev/null 2>&1; then
+  actual="$(shasum -a 256 "$temporary/$asset" | awk '{print $1}')"
+else
+  actual="$(sha256sum "$temporary/$asset" | awk '{print $1}')"
+fi
+[[ "$expected" =~ ^[[:xdigit:]]{64}$ && "${actual,,}" == "${expected,,}" ]] || { echo "Release archive checksum verification failed" >&2; exit 1; }
 tar -xzf "$temporary/$asset" -C "$temporary"
 [[ -x "$temporary/bin/installer" ]] || { echo "Release archive is missing bin/installer" >&2; exit 1; }
 exec "$temporary/bin/installer" "${arguments[@]}"

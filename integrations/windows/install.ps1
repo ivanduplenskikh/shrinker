@@ -17,10 +17,15 @@ $asset = "shrinker-win-x64.zip"
 $url = if ($Version) { $tag = if ($Version.StartsWith("v")) { $Version } else { "v$Version" }; "https://github.com/ivanduplenskikh/shrinker/releases/download/$tag/$asset" } else { "https://github.com/ivanduplenskikh/shrinker/releases/latest/download/$asset" }
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ("shrinker-install-" + [guid]::NewGuid().ToString("N"))
 $archive = Join-Path $temporary $asset
+$checksum = Join-Path $temporary "$asset.sha256"
 $extract = Join-Path $temporary "package"
 try {
     New-Item -ItemType Directory -Force -Path $extract | Out-Null
     Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
+    Invoke-WebRequest -Uri "$url.sha256" -OutFile $checksum -UseBasicParsing
+    $expected = (Get-Content -LiteralPath $checksum -Raw).Trim().Split()[0]
+    $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($expected -notmatch '^[a-fA-F0-9]{64}$' -or $actual -ne $expected.ToLowerInvariant()) { throw "Release archive checksum verification failed" }
     Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
     $installer = Join-Path $extract "bin\installer.exe"
     if (-not (Test-Path $installer)) { throw "Release archive is missing bin\installer.exe" }

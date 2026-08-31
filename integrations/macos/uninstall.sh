@@ -64,19 +64,10 @@ remove_release_install() {
 # The dashboard runs as a detached daemon, so removing the binary never stops it.
 stop_dashboard_server() {
   local url="http://127.0.0.1:$DASHBOARD_PORT"
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsS -m 3 -X POST "$url/__shrinker_shutdown" -o /dev/null 2>/dev/null || true
-    sleep 1
-  fi
-
-  local pid
-  pid="$(lsof -nP -iTCP:"$DASHBOARD_PORT" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true)"
-  if [[ -n "$pid" ]]; then
-    kill "$pid" 2>/dev/null || true
-    sleep 1
-    pid="$(lsof -nP -iTCP:"$DASHBOARD_PORT" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true)"
-    [[ -n "$pid" ]] && kill -9 "$pid" 2>/dev/null || true
-  fi
+  local token_path="$HOME/.shrinker/dashboard-token"
+  [[ -r "$token_path" ]] || return 0
+  command -v curl >/dev/null 2>&1 || return 0
+  curl -fsS -m 3 -X POST "$url/__shrinker_shutdown" -H "X-Shrinker-Shutdown-Token: $(cat "$token_path")" -o /dev/null 2>/dev/null || true
 }
 
 print_step "🛑" "Stopping the dashboard server on port $DASHBOARD_PORT..."

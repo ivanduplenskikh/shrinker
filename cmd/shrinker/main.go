@@ -99,8 +99,8 @@ func main() {
 				fail("--port requires a value")
 			}
 			parsed, err := strconv.Atoi(args[1])
-			if err != nil || parsed <= 0 {
-				fail("--port requires a positive integer")
+			if err != nil || !validDashboardPort(parsed) {
+				fail("--port requires an integer from 1 to 65535")
 			}
 			dashboardPort, args = parsed, args[2:]
 		case "--path":
@@ -466,6 +466,10 @@ func readInput() (string, error) {
 
 func startsOption(value string) bool {
 	return len(value) > 0 && value[0] == '-'
+}
+
+func validDashboardPort(port int) bool {
+	return port >= 1 && port <= 65535
 }
 
 func fail(message string) {

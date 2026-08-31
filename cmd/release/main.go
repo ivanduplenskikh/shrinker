@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -148,8 +149,25 @@ func packageRelease(target targetSpec, version string) error {
 	if err != nil {
 		return err
 	}
+	if err := writeChecksum(output); err != nil {
+		return err
+	}
 	fmt.Printf("Created %s\n", output)
 	return nil
+}
+
+func writeChecksum(path string) error {
+	input, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	digest := sha256.New()
+	if _, err := io.Copy(digest, input); err != nil {
+		return err
+	}
+	contents := fmt.Sprintf("%x  %s\n", digest.Sum(nil), filepath.Base(path))
+	return os.WriteFile(path+".sha256", []byte(contents), 0o644)
 }
 
 func copyTree(source, destination string) error {

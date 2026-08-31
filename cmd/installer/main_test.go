@@ -2,8 +2,6 @@ package main
 
 import (
 	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,19 +116,6 @@ func TestCopyFileWithRetryCopiesFile(t *testing.T) {
 	}
 }
 
-func TestRequestDashboardShutdownPostsToEndpoint(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.Method != http.MethodPost || request.URL.Path != "/__shrinker_shutdown" {
-			t.Fatalf("request = %s %s", request.Method, request.URL.Path)
-		}
-		writer.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
-
-	requestDashboardShutdown(server.URL + "/__shrinker_shutdown")
-}
-
 func sameStrings(left, right []string) bool {
 	return strings.Join(left, "\x00") == strings.Join(right, "\x00")
 }
-

@@ -37,12 +37,15 @@ func TestHandlerServesAndShutsDown(t *testing.T) {
 	server := &http.Server{}
 	handler := Handler(func() (metrics.StatsSummary, error) {
 		return metrics.StatsSummary{DatabasePath: "test.db"}, nil
-	}, server)
+	}, server, "test-token")
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	record := httptest.NewRecorder()
 	handler.ServeHTTP(record, request)
 	if record.Code != http.StatusOK {
 		t.Fatalf("status = %d", record.Code)
+	}
+	if record.Header().Get("X-Content-Type-Options") != "nosniff" || record.Header().Get("X-Frame-Options") != "DENY" {
+		t.Fatalf("security headers = %#v", record.Header())
 	}
 	body, _ := io.ReadAll(record.Result().Body)
 	if !strings.Contains(string(body), "Shrinker stats") {
@@ -68,6 +71,14 @@ func TestHandlerServesAndShutsDown(t *testing.T) {
 
 	shutdown := httptest.NewRecorder()
 	handler.ServeHTTP(shutdown, httptest.NewRequest(http.MethodPost, "/__shrinker_shutdown", nil))
+	if shutdown.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated shutdown status = %d", shutdown.Code)
+	}
+
+	shutdown = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/__shrinker_shutdown", nil)
+	request.Header.Set("X-Shrinker-Shutdown-Token", "test-token")
+	handler.ServeHTTP(shutdown, request)
 	if shutdown.Code != http.StatusNoContent {
 		t.Fatalf("shutdown status = %d", shutdown.Code)
 	}

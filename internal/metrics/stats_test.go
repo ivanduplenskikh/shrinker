@@ -36,6 +36,9 @@ func TestRecordRunAndGetStats(t *testing.T) {
 	if chart := FormatStatsChart(summary); !strings.Contains(chart, "Activity") {
 		t.Fatalf("chart = %q", chart)
 	}
+	if formatted := FormatStats(summary); !strings.Contains(formatted, "Dashboard: http://127.0.0.1:4317") {
+		t.Fatalf("stats = %q", formatted)
+	}
 }
 
 func TestRecordRunOmitsUnsafeSubcommand(t *testing.T) {

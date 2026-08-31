@@ -346,7 +346,7 @@ func sortedParts(value string) []string {
 	return parts
 }
 func FormatStats(summary StatsSummary) string {
-	return fmt.Sprintf("Shrinker Token Savings Dashboard\n\nAll time: %d runs | est. %d tokens saved | -%d%%\nLast 7 days: %d runs | est. %d tokens saved | -%d%%\n\nDatabase: %s", summary.Total.Runs, summary.Total.EstimatedTokensSaved, summary.Total.ReductionPercent, summary.Last7Days.Runs, summary.Last7Days.EstimatedTokensSaved, summary.Last7Days.ReductionPercent, summary.DatabasePath)
+	return fmt.Sprintf("Shrinker Token Savings Dashboard\n\nAll time: %d runs | est. %d tokens saved | -%d%%\nLast 7 days: %d runs | est. %d tokens saved | -%d%%\n\nDashboard: http://127.0.0.1:4317\nDatabase: %s", summary.Total.Runs, summary.Total.EstimatedTokensSaved, summary.Total.ReductionPercent, summary.Last7Days.Runs, summary.Last7Days.EstimatedTokensSaved, summary.Last7Days.ReductionPercent, summary.DatabasePath)
 }
 func FormatStatsJSON(summary StatsSummary) (string, error) {
 	encoded, err := json.MarshalIndent(summary, "", "  ")

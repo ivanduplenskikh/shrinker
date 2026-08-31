@@ -3,12 +3,16 @@ package dashboard
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -40,19 +44,71 @@ func Render(summary metrics.StatsSummary) (string, error) {
 }
 
 func Serve(getSummary func() (metrics.StatsSummary, error), port int) error {
+	token, err := writeShutdownToken()
+	if err != nil {
+		return err
+	}
+	defer os.Remove(ShutdownTokenPath())
 	server := &http.Server{Addr: fmt.Sprintf("127.0.0.1:%d", port)}
-	handler := Handler(getSummary, server)
+	handler := Handler(getSummary, server, token)
 	server.Handler = handler
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
 	return err
 }
 
-func Handler(getSummary func() (metrics.StatsSummary, error), server *http.Server) http.Handler {
+func ShutdownTokenPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".shrinker", "dashboard-token")
+	}
+	return filepath.Join(home, ".shrinker", "dashboard-token")
+}
+
+func RequestShutdown(endpoint string) {
+	token, err := os.ReadFile(ShutdownTokenPath())
+	if err != nil || len(token) == 0 {
+		return
+	}
+	request, err := http.NewRequest(http.MethodPost, endpoint, nil)
+	if err != nil {
+		return
+	}
+	request.Header.Set("X-Shrinker-Shutdown-Token", string(token))
+	response, err := (&http.Client{Timeout: 2 * time.Second}).Do(request)
+	if err == nil {
+		response.Body.Close()
+	}
+}
+
+func writeShutdownToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(filepath.Dir(ShutdownTokenPath()), 0o700); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(bytes)
+	if err := os.WriteFile(ShutdownTokenPath(), []byte(token), 0o600); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func Handler(getSummary func() (metrics.StatsSummary, error), server *http.Server, shutdownToken string) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("X-Content-Type-Options", "nosniff")
+		writer.Header().Set("X-Frame-Options", "DENY")
+		writer.Header().Set("Referrer-Policy", "no-referrer")
+		writer.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 		if request.Method == http.MethodPost && request.URL.Path == "/__shrinker_shutdown" {
+			if shutdownToken == "" || request.Header.Get("X-Shrinker-Shutdown-Token") != shutdownToken {
+				http.Error(writer, "unauthorized", http.StatusUnauthorized)
+				return
+			}
 			writer.WriteHeader(http.StatusNoContent)
 			go server.Shutdown(context.Background())
 			return

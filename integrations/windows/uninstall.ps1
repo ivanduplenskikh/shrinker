@@ -84,15 +84,12 @@ function Remove-ReleaseInstall {
 # The dashboard runs as a detached daemon, so unlinking the package never stops it.
 function Stop-DashboardServer {
     param([int]$DashboardPort)
+    $tokenPath = Join-Path $HOME ".shrinker\dashboard-token"
+    if (-not (Test-Path -LiteralPath $tokenPath)) { return }
+    $token = (Get-Content -LiteralPath $tokenPath -Raw).Trim()
+    if (-not $token) { return }
     try {
-        Invoke-WebRequest -Uri "http://127.0.0.1:$DashboardPort/__shrinker_shutdown" -Method Post -TimeoutSec 3 -UseBasicParsing | Out-Null
-        Start-Sleep -Seconds 1
-    }
-    catch { }
-
-    try {
-        $listener = Get-NetTCPConnection -LocalPort $DashboardPort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($listener) { Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue }
+        Invoke-WebRequest -Uri "http://127.0.0.1:$DashboardPort/__shrinker_shutdown" -Method Post -Headers @{ "X-Shrinker-Shutdown-Token" = $token } -TimeoutSec 3 -UseBasicParsing | Out-Null
     }
     catch { }
 }

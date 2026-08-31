@@ -44,7 +44,7 @@ To pin a version:
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/windows/install.ps1))) -Version 0.4.0
 ```
 
-The platform bootstrap script downloads one of these anonymous GitHub Release archives, then delegates installation to the packaged cross-platform Go installer:
+The platform bootstrap script downloads one of these GitHub Release archives, verifies its SHA-256 sidecar checksum, then delegates installation to the packaged cross-platform Go installer:
 
 - `shrinker-win-x64.zip`
 - `shrinker-macos-arm64.tar.gz`
