@@ -57,16 +57,10 @@ After installation, Shrinker starts its local dashboard server at `http://127.0.
 
 ### Local checkout
 
-Install from a checkout:
+Build and install from a checkout:
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\integrations\windows\install.ps1 -Local
-```
-
-On macOS:
-
-```bash
-bash ./integrations/macos/install.sh --local
+go run ./cmd/installer install
 ```
 
 The platform scripts are thin bootstrappers; installation, configuration, PATH setup, legacy profile cleanup, and agent rules are handled by the shared Go installer. To uninstall:
@@ -82,7 +76,7 @@ bash ./integrations/macos/uninstall.sh
 To run the shared installer directly from a checkout:
 
 ```powershell
-go run ./cmd/installer install --local
+go run ./cmd/installer install
 go run ./cmd/installer uninstall
 ```
 

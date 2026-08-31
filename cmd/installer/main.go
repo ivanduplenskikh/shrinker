@@ -1,9 +1,6 @@
 package main
 
 import (
-	"archive/tar"
-	"archive/zip"
-	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -43,15 +40,10 @@ func main() {
 
 func install(args []string) {
 	flags := flag.NewFlagSet("install", flag.ExitOnError)
-	local := flags.Bool("local", false, "build from the current checkout")
-	version := flags.String("version", "", "release version")
-	releaseRepo := flags.String("release-repo", "ivanduplenskikh/shrinker", "GitHub repository")
-	assetBaseURL := flags.String("asset-base-url", "", "release asset base URL")
-	archivePath := flags.String("archive", "", "use a downloaded release archive")
 	_ = flags.Parse(args)
-	root, err := os.Getwd()
-	if err != nil {
-		fail(err.Error())
+	root, bundled := installSourceRoot()
+	if root == "" {
+		fail("installer must run from a Shrinker release bundle or source checkout")
 	}
 	installDir := defaultInstallDir()
 	binDir := filepath.Join(installDir, "bin")
@@ -63,29 +55,15 @@ func install(args []string) {
 	if runtime.GOOS == "windows" {
 		binary += ".exe"
 	}
-	if !*local {
-		archive := *archivePath
-		if archive == "" {
-			archive, err = downloadRelease(*releaseRepo, *version, *assetBaseURL)
-			if err != nil {
+	if bundled {
+		stopDashboardServer()
+		if filepath.Clean(root) != filepath.Clean(installDir) {
+			if err := copyFileWithRetry(filepath.Join(root, "bin", filepath.Base(binary)), binary); err != nil {
 				fail(err.Error())
 			}
-			defer os.Remove(archive)
-		}
-		staging, err := os.MkdirTemp("", "shrinker-install-")
-		if err != nil {
-			fail(err.Error())
-		}
-		defer os.RemoveAll(staging)
-		if err := extractArchive(archive, staging); err != nil {
-			fail(err.Error())
-		}
-		stopDashboardServer()
-		if err := copyFileWithRetry(filepath.Join(staging, "bin", filepath.Base(binary)), binary); err != nil {
-			fail(err.Error())
 		}
 		for _, relative := range []string{"integrations", "templates", "manifest.json"} {
-			source := filepath.Join(staging, relative)
+			source := filepath.Join(root, relative)
 			if fileExists(source) {
 				if err := copyTree(source, filepath.Join(installDir, relative)); err != nil {
 					fail(err.Error())
@@ -96,11 +74,7 @@ func install(args []string) {
 		if version, err := installedManifestVersion(filepath.Join(installDir, "manifest.json")); err == nil {
 			installedVersion = version
 		}
-	}
-	if *local {
-		if !fileExists(filepath.Join(root, "go.mod")) {
-			fail("local installation must be run from a Go checkout")
-		}
+	} else {
 		command := exec.Command("go", "build", "-ldflags=-s -w", "-o", binary, "./cmd/shrinker")
 		command.Stdout = os.Stdout
 		command.Stderr = os.Stderr
@@ -305,153 +279,6 @@ func copyFileWithRetry(src, dst string) error {
 	return err
 }
 
-func downloadRelease(repo, version, base string) (string, error) {
-	target := "linux-x64"
-	if runtime.GOOS == "windows" {
-		target = "win-x64"
-	} else if runtime.GOOS == "darwin" {
-		if runtime.GOARCH == "arm64" {
-			target = "macos-arm64"
-		} else {
-			target = "macos-x64"
-		}
-	}
-	extension := ".tar.gz"
-	if runtime.GOOS == "windows" {
-		extension = ".zip"
-	}
-	asset := "shrinker-" + target + extension
-	url := strings.TrimRight(base, "/") + "/" + asset
-	if base == "" {
-		url = "https://github.com/" + repo + "/releases/latest/download/" + asset
-		if version != "" {
-			url = "https://github.com/" + repo + "/releases/download/v" + strings.TrimPrefix(version, "v") + "/" + asset
-		}
-	}
-	client := &http.Client{Timeout: 2 * time.Minute}
-	response, err := client.Get(url)
-	if err != nil {
-		return "", err
-	}
-	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return "", fmt.Errorf("release download failed: %s", response.Status)
-	}
-	output, err := os.CreateTemp("", "shrinker-"+target+"-*"+extension)
-	if err != nil {
-		return "", err
-	}
-	path := output.Name()
-	defer output.Close()
-	if _, err = io.Copy(output, response.Body); err != nil {
-		_ = os.Remove(path)
-		return "", err
-	}
-	return path, nil
-}
-
-func archiveTarget(destination, name string) (string, error) {
-	normalizedName := strings.ReplaceAll(name, `\`, "/")
-	cleanName := filepath.Clean(filepath.FromSlash(normalizedName))
-	if cleanName == "." || filepath.IsAbs(cleanName) || strings.HasPrefix(normalizedName, "/") {
-		return "", fmt.Errorf("unsafe archive path: %s", name)
-	}
-	target := filepath.Join(destination, cleanName)
-	relative, err := filepath.Rel(destination, target)
-	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("unsafe archive path: %s", name)
-	}
-	return target, nil
-}
-
-func extractArchive(path, destination string) error {
-	if strings.HasSuffix(path, ".zip") {
-		archive, err := zip.OpenReader(path)
-		if err != nil {
-			return err
-		}
-		defer archive.Close()
-		for _, entry := range archive.File {
-			if entry.Mode()&os.ModeSymlink != 0 || entry.Mode()&os.ModeNamedPipe != 0 || entry.Mode()&os.ModeSocket != 0 || entry.Mode()&os.ModeDevice != 0 {
-				return fmt.Errorf("unsupported archive entry: %s", entry.Name)
-			}
-			target, err := archiveTarget(destination, entry.Name)
-			if err != nil {
-				return err
-			}
-			if entry.FileInfo().IsDir() {
-				if err := os.MkdirAll(target, 0o700); err != nil {
-					return err
-				}
-				continue
-			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-				return err
-			}
-			input, err := entry.Open()
-			if err != nil {
-				return err
-			}
-			output, err := os.Create(target)
-			if err == nil {
-				_, err = io.Copy(output, input)
-				output.Close()
-			}
-			input.Close()
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	input, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer input.Close()
-	compressed, err := gzip.NewReader(input)
-	if err != nil {
-		return err
-	}
-	defer compressed.Close()
-	archive := tar.NewReader(compressed)
-	for {
-		header, err := archive.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA && header.Typeflag != tar.TypeDir {
-			return fmt.Errorf("unsupported archive entry: %s", header.Name)
-		}
-		target, err := archiveTarget(destination, header.Name)
-		if err != nil {
-			return err
-		}
-		if header.FileInfo().IsDir() {
-			if err := os.MkdirAll(target, 0o700); err != nil {
-				return err
-			}
-			continue
-		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-			return err
-		}
-		output, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(header.Mode)&0o777)
-		if err != nil {
-			return err
-		}
-		_, err = io.Copy(output, archive)
-		output.Close()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func copyTree(source, destination string) error {
 	info, err := os.Stat(source)
 	if err != nil {
@@ -476,6 +303,18 @@ func copyTree(source, destination string) error {
 }
 func fileExists(path string) bool { _, err := os.Stat(path); return err == nil }
 func defaultInstallDir() string   { home, _ := os.UserHomeDir(); return filepath.Join(home, ".shrinker") }
+func installSourceRoot() (string, bool) {
+	if executable, err := os.Executable(); err == nil {
+		root := filepath.Dir(filepath.Dir(executable))
+		if fileExists(filepath.Join(root, "templates", "agent-rules.md")) {
+			return root, true
+		}
+	}
+	if root, err := os.Getwd(); err == nil && fileExists(filepath.Join(root, "go.mod")) {
+		return root, false
+	}
+	return "", false
+}
 func defaultProfile() string {
 	home, _ := os.UserHomeDir()
 	if runtime.GOOS == "windows" {
@@ -565,6 +404,6 @@ func addUserPath(directory string) error {
 
 func quotePowerShell(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
 func usage() {
-	fmt.Println("Usage: installer install [--local | --archive <path>] | installer uninstall\n\nOptions: --version --archive")
+	fmt.Println("Usage: installer install | installer uninstall")
 }
 func fail(message string) { fmt.Fprintln(os.Stderr, message); os.Exit(1) }
