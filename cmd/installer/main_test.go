@@ -99,6 +99,20 @@ func TestInstalledManifestVersion(t *testing.T) {
 	}
 }
 
+func TestWriteInstallManifest(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.json")
+	if err := writeInstallManifest(path, localBuildVersion); err != nil {
+		t.Fatal(err)
+	}
+	version, err := installedManifestVersion(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version != "v"+localBuildVersion {
+		t.Fatalf("version = %q, want %q", version, "v"+localBuildVersion)
+	}
+}
+
 func TestRemoveAllWithRetryRemovesDirectory(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "bin")

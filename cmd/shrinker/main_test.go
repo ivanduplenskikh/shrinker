@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -135,6 +136,27 @@ func TestShouldRecordStatsExcludesRawAndOptedOutRuns(t *testing.T) {
 func TestVersionLessThan(t *testing.T) {
 	if !versionLessThan("0.15.0", "0.16.0") || !versionLessThan("0.15", "0.15.1") || versionLessThan("0.16.0", "0.16.0") || versionLessThan("0.17.0", "0.16.9") {
 		t.Fatal("version comparison returned an unexpected result")
+	}
+}
+
+func TestUpdateCommand(t *testing.T) {
+	command := updateCommand()
+	if !strings.Contains(command, "raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/") {
+		t.Fatalf("update command = %q", command)
+	}
+	if runtime.GOOS == "windows" && !strings.Contains(command, "install.ps1") {
+		t.Fatalf("Windows update command = %q", command)
+	}
+}
+
+func TestUpdateNoticeIncludesCommandForLegacyNotice(t *testing.T) {
+	legacyNotice := "[shrinker] Update available: v0.30.0 (installed: v0.0.0-local)\n"
+	message := updateNoticeMessage(legacyNotice)
+	if !strings.Contains(message, "[shrinker] Update: "+updateCommand()) {
+		t.Fatalf("legacy notice message = %q", message)
+	}
+	if updateNoticeMessage(message) != message {
+		t.Fatal("notice message duplicated the update command")
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +31,10 @@ const usage = `Usage:
 
 func main() {
 	args := os.Args[1:]
+	defer printUpdateNotice()
+	if len(args) == 0 || args[0] != "update-check" {
+		checkForUpdate()
+	}
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
 		fmt.Print(usage)
 		return
@@ -272,6 +277,7 @@ optionsDone:
 		}
 	}
 	if result.ExitCode != 0 {
+		printUpdateNotice()
 		os.Exit(result.ExitCode)
 	}
 }
@@ -365,11 +371,39 @@ func checkForUpdate() {
 		writeUpdateCheckState(statePath, state)
 		return
 	}
-	if versionLessThan(version, latest) && state.NotifiedVersion != latest {
-		_ = os.WriteFile(filepath.Join(installDir, "update-notice"), []byte(fmt.Sprintf("[shrinker] Update available: v%s (installed: v%s)\n", latest, version)), 0o600)
+	if versionLessThan(version, latest) {
+		_ = os.WriteFile(filepath.Join(installDir, "update-notice"), []byte(fmt.Sprintf("[shrinker] Update available: v%s (installed: v%s)\n[shrinker] Update: %s\n", latest, version, updateCommand())), 0o600)
 		state.NotifiedVersion = latest
+	} else if !versionLessThan(version, latest) {
+		_ = os.Remove(filepath.Join(installDir, "update-notice"))
+		state.NotifiedVersion = ""
 	}
 	writeUpdateCheckState(statePath, state)
+}
+
+func printUpdateNotice() {
+	_, installDir, ok := installedVersion()
+	if !ok {
+		return
+	}
+	notice, err := os.ReadFile(filepath.Join(installDir, "update-notice"))
+	if err == nil && len(notice) > 0 {
+		fmt.Fprintf(os.Stderr, "\x1b[38;5;208m%s\x1b[0m", updateNoticeMessage(string(notice)))
+	}
+}
+
+func updateNoticeMessage(notice string) string {
+	if strings.Contains(notice, "[shrinker] Update:") {
+		return notice
+	}
+	return notice + fmt.Sprintf("[shrinker] Update: %s\n", updateCommand())
+}
+
+func updateCommand() string {
+	if runtime.GOOS == "windows" {
+		return "irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/windows/install.ps1 | iex"
+	}
+	return "curl -fsSL https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/macos/install.sh | bash"
 }
 
 func installedVersion() (string, string, bool) {

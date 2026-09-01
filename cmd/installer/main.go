@@ -20,6 +20,11 @@ const blockStart = "# >>> shrinker integration >>>"
 const blockEnd = "# <<< shrinker integration <<<"
 const rulesStart = "<!-- shrinker agent rules start -->"
 const rulesEnd = "<!-- shrinker agent rules end -->"
+const localBuildVersion = "0.0.0-local"
+
+type installManifest struct {
+	Version string `json:"version"`
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -82,6 +87,9 @@ func install(args []string) {
 		if err := command.Run(); err != nil {
 			fail("Go build failed: " + err.Error())
 		}
+		if err := writeInstallManifest(filepath.Join(installDir, "manifest.json"), localBuildVersion); err != nil {
+			fail(err.Error())
+		}
 	}
 	if err := removeLegacyProfileIntegrations(profilePaths()); err != nil {
 		fail(err.Error())
@@ -137,6 +145,14 @@ func installedManifestVersion(path string) (string, error) {
 		return "", errors.New("release manifest is missing a version")
 	}
 	return "v" + strings.TrimPrefix(release.Version, "v"), nil
+}
+
+func writeInstallManifest(path, version string) error {
+	contents, err := json.Marshal(installManifest{Version: version})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, contents, 0o600)
 }
 
 func uninstall(args []string) {
