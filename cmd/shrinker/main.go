@@ -22,8 +22,7 @@ import (
 const usage = `Usage:
   shrinker <command> [args...]
   shrinker exec [--] <command> [args...]
-  shrinker update
-  shrinker update-check
+  shrinker update [--check]
   shrinker pipe [--kind log] [--max-lines <number>]
   shrinker stats [--json] [--chart] --dashboard [--dashboard-server] [--port <number>]
   shrinker last
@@ -34,6 +33,11 @@ const usage = `Usage:
 func main() {
 	args := os.Args[1:]
 	if len(args) > 0 && args[0] == "update" {
+		if len(args) == 2 && args[1] == "--check" {
+			checkForUpdate()
+			printUpdateNotice()
+			return
+		}
 		if len(args) != 1 {
 			fail("update does not accept arguments")
 		}
@@ -41,18 +45,9 @@ func main() {
 		return
 	}
 	defer printUpdateNotice()
-	if len(args) == 0 || args[0] != "update-check" {
-		checkForUpdate()
-	}
+	checkForUpdate()
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
 		fmt.Print(usage)
-		return
-	}
-	if args[0] == "update-check" {
-		if len(args) != 1 {
-			fail("update-check does not accept arguments")
-		}
-		checkForUpdate()
 		return
 	}
 
