@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -15,6 +16,21 @@ func TestDashboardServerCommandUsesInstalledBinary(t *testing.T) {
 	}
 	if command.Stdout != io.Discard || command.Stderr != io.Discard {
 		t.Fatal("dashboard server command must not hold installer output streams open")
+	}
+}
+
+func TestAgentRulesRequireShrinkerForLimitedGitLog(t *testing.T) {
+	_, sourcePath, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("could not determine test source path")
+	}
+	path := filepath.Join(filepath.Dir(sourcePath), "..", "..", "templates", "agent-rules.md")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(contents), "Do not run the raw command directly, including when its arguments appear to limit output (for example, `git log -n 1`).") {
+		t.Fatal("agent rules must require shrinker for output-limited git log commands")
 	}
 }
 

@@ -1,4 +1,4 @@
-Use `shrinker` for high-volume terminal outputs to reduce tokens.
+Use `shrinker` for every terminal command covered by the routing policy below. Do not run the raw command directly, including when its arguments appear to limit output (for example, `git log -n 1`).
 
 Routing policy:
 - `git status|diff|log|show|reflog|branch|tag|stash` -> `shrinker git ...`
