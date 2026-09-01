@@ -3,7 +3,6 @@ package main
 import (
 	"io"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -140,12 +139,8 @@ func TestVersionLessThan(t *testing.T) {
 }
 
 func TestUpdateCommand(t *testing.T) {
-	command := updateCommand()
-	if !strings.Contains(command, "raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/") {
+	if command := updateCommand(); command != "shrinker update" {
 		t.Fatalf("update command = %q", command)
-	}
-	if runtime.GOOS == "windows" && !strings.Contains(command, "install.ps1") {
-		t.Fatalf("Windows update command = %q", command)
 	}
 }
 

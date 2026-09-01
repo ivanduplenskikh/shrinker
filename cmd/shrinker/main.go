@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -21,6 +22,7 @@ import (
 const usage = `Usage:
   shrinker <command> [args...]
   shrinker exec [--] <command> [args...]
+  shrinker update
   shrinker update-check
   shrinker pipe [--kind log] [--max-lines <number>]
   shrinker stats [--json] [--chart] --dashboard [--dashboard-server] [--port <number>]
@@ -31,6 +33,13 @@ const usage = `Usage:
 
 func main() {
 	args := os.Args[1:]
+	if len(args) > 0 && args[0] == "update" {
+		if len(args) != 1 {
+			fail("update does not accept arguments")
+		}
+		startUpdate()
+		return
+	}
 	defer printUpdateNotice()
 	if len(args) == 0 || args[0] != "update-check" {
 		checkForUpdate()
@@ -400,10 +409,43 @@ func updateNoticeMessage(notice string) string {
 }
 
 func updateCommand() string {
-	if runtime.GOOS == "windows" {
-		return "irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/windows/install.ps1 | iex"
+	return "shrinker update"
+}
+
+func startUpdate() {
+	command := updateInstallerCommand()
+	command.Stdin = os.Stdin
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if err := command.Start(); err != nil {
+		fail("could not start update: " + err.Error())
 	}
-	return "curl -fsSL https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/macos/install.sh | bash"
+	fmt.Println("Shrinker update started.")
+}
+
+func updateInstallerCommand() *exec.Cmd {
+	if executable, err := os.Executable(); err == nil {
+		root := filepath.Dir(filepath.Dir(executable))
+		script := filepath.Join(root, "integrations", "macos", "install.sh")
+		if runtime.GOOS == "windows" {
+			script = filepath.Join(root, "integrations", "windows", "install.ps1")
+		}
+		if fileExists(script) {
+			if runtime.GOOS == "windows" {
+				return exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script)
+			}
+			return exec.Command("bash", script)
+		}
+	}
+	if runtime.GOOS == "windows" {
+		return exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "irm https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/windows/install.ps1 | iex")
+	}
+	return exec.Command("bash", "-c", "curl -fsSL https://raw.githubusercontent.com/ivanduplenskikh/shrinker/main/integrations/macos/install.sh | bash")
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func installedVersion() (string, string, bool) {

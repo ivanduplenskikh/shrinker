@@ -125,7 +125,7 @@ shrinker help
 
 `help`, `stats`, `last`, `raw`, `pipe`, and `exec` are reserved shrinker commands. Every other top-level token starts a wrapped command, so `shrinker git log` is equivalent to `shrinker exec git log`. `pipe` reads existing text from stdin and defaults to the generic log filter unless `--kind` is specified. Shrinker does not override native shell commands: invoke it explicitly for output you want filtered. Install and uninstall remove any legacy managed shell-routing block while preserving other profile content.
 
-Installed Shrinker commands check for updates at most once every 24 hours. When a newer release is available, the next command prints a compact notice to stderr. Run `shrinker update-check` to check immediately.
+Installed Shrinker commands check for updates at most once every 24 hours. When a newer release is available, the next command prints a compact notice to stderr. Run `shrinker update-check` to check immediately, or `shrinker update` to install the latest release. The updater starts the installer bootstrap and completes after the current Shrinker process exits.
 
 ## Savings statistics
 
