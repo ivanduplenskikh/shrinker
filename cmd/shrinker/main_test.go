@@ -102,7 +102,7 @@ func TestRenderRawPreservesCapturedCommandOutput(t *testing.T) {
 	})
 
 	input := strings.Repeat("progress 50%\n", 200)
-	omitted, _ := render(input, true, false, "log", 120, 40, 0, []string{"docker", "logs", "api"})
+	omitted, measurements := render(input, true, false, "log", 120, 40, 0, []string{"docker", "logs", "api"})
 	writer.Close()
 	output, err := io.ReadAll(reader)
 	if err != nil {
@@ -110,6 +110,25 @@ func TestRenderRawPreservesCapturedCommandOutput(t *testing.T) {
 	}
 	if omitted || string(output) != input {
 		t.Fatalf("raw output = %d bytes, omitted = %t", len(output), omitted)
+	}
+	if measurements.EstimatedTokensSaved == 0 {
+		t.Fatalf("raw measurements = %#v, want potential savings", measurements)
+	}
+}
+
+func TestShouldRecordStatsExcludesRawAndOptedOutRuns(t *testing.T) {
+	for _, test := range []struct {
+		raw, noStats bool
+		want         bool
+	}{
+		{want: true},
+		{raw: true},
+		{noStats: true},
+		{raw: true, noStats: true},
+	} {
+		if got := shouldRecordStats(test.raw, test.noStats); got != test.want {
+			t.Errorf("shouldRecordStats(%t, %t) = %t, want %t", test.raw, test.noStats, got, test.want)
+		}
 	}
 }
 

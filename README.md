@@ -138,7 +138,7 @@ shrinker stats --dashboard --port 4318
 shrinker stats --dashboard --dashboard-server
 ```
 
-The summary shows all-time and last-seven-day savings plus a breakdown by filter. Use `--no-stats` before `--` to opt out for an individual run.
+The summary shows all-time and last-seven-day actual savings plus a breakdown by filter. Raw-mode runs are not recorded because no output is reduced. Use `--no-stats` before `--` to opt out for an individual filtered run.
 
 `stats --coverage` lists commands shrinker does not cover yet.
 `stats --chart` shows daily runs, estimated tokens saved, reduction percentage, and an activity bar for the last 30 days.

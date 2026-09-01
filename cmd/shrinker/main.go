@@ -244,7 +244,7 @@ optionsDone:
 	if filterKind == filters.KindAuto {
 		filterKind = filters.Detect(args)
 	}
-	if !noStats {
+	if shouldRecordStats(raw, noStats) {
 		commandSubcommand := ""
 		if signature, ok := metrics.CommandSignatureFor(args); ok {
 			commandSubcommand = signature.Subcommand
@@ -282,7 +282,7 @@ func renderPipe(raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines
 		fail(err.Error())
 	}
 	_, measurements := render(input, raw, showMetrics, kind, maxLines, perFileLines, 0, nil)
-	if !noStats {
+	if shouldRecordStats(raw, noStats) {
 		filterKind := kind
 		if filterKind == filters.KindAuto {
 			filterKind = filters.KindLog
@@ -296,20 +296,25 @@ func renderPipe(raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines
 func render(input string, raw, showMetrics bool, kind filters.Kind, maxLines, perFileLines int, durationMs int64, command []string) (bool, metrics.Measurements) {
 	output := input
 	omitted := false
-	if !raw {
-		result := filters.Apply(input, kind, filters.Options{MaxLines: maxLines, PerFileLines: perFileLines, Command: command})
-		omitted = result.Omitted
-		comparison := metrics.Measure(input, result.Output)
-		if comparison.OutputBytes < comparison.RawBytes && comparison.OutputEstimatedTokens < comparison.RawEstimatedTokens {
+	result := filters.Apply(input, kind, filters.Options{MaxLines: maxLines, PerFileLines: perFileLines, Command: command})
+	omitted = result.Omitted
+	measurements := metrics.Measure(input, result.Output)
+	if measurements.OutputBytes < measurements.RawBytes && measurements.OutputEstimatedTokens < measurements.RawEstimatedTokens {
+		if !raw {
 			output = result.Output
 		}
+	} else {
+		measurements = metrics.Measure(input, output)
 	}
-	measurements := metrics.Measure(input, output)
 	if showMetrics {
 		fmt.Fprintln(os.Stderr, metrics.FormatMeasurements(measurements, &durationMs))
 	}
 	fmt.Fprint(os.Stdout, output)
-	return omitted && output != input, measurements
+	return !raw && omitted && output != input, measurements
+}
+
+func shouldRecordStats(raw, noStats bool) bool {
+	return !raw && !noStats
 }
 
 func withDefaultGitLogLimit(command []string) []string {
